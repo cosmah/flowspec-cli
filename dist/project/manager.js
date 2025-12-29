@@ -54,7 +54,25 @@ class ProjectManager {
     constructor() {
         this.authManager = new manager_1.AuthManager();
         this.codeParser = new parser_1.CodeParser();
-        this.apiUrl = process.env.FLOWSPEC_API_URL || 'https://api.cosmah.me';
+        // Check for API URL in environment variable first
+        // Then check existing project config if available
+        let apiUrl = process.env.FLOWSPEC_API_URL;
+        if (!apiUrl) {
+            // Try to get API URL from existing project config
+            const projectConfigPath = path.join(process.cwd(), '.flowspec', 'config.json');
+            if (fs.existsSync(projectConfigPath)) {
+                try {
+                    const config = JSON.parse(fs.readFileSync(projectConfigPath, 'utf-8'));
+                    if (config.apiUrl) {
+                        apiUrl = config.apiUrl;
+                    }
+                }
+                catch (error) {
+                    // Ignore config read errors
+                }
+            }
+        }
+        this.apiUrl = apiUrl || 'https://api.cosmah.me';
     }
     /**
      * Initialize FlowSpec in a project
@@ -158,8 +176,10 @@ class ProjectManager {
                 }
             }
             spinner.text = 'Uploading to AI context...';
+            // Use API URL from config if available, otherwise use instance default
+            const apiUrl = config.apiUrl || this.apiUrl;
             // Upload to server
-            await axios_1.default.post(`${this.apiUrl}/embed-files`, {
+            await axios_1.default.post(`${apiUrl}/embed-files`, {
                 files: fileChunks,
                 collection_name: `project_${config.projectId}`
             }, {
@@ -205,11 +225,14 @@ class ProjectManager {
         console.log(chalk_1.default.gray(`   Name: ${config.name}`));
         console.log(chalk_1.default.gray(`   Framework: ${config.framework}`));
         console.log(chalk_1.default.gray(`   Project ID: ${config.projectId}`));
+        // Use API URL from config if available, otherwise use instance default
+        const apiUrl = config.apiUrl || this.apiUrl;
         // Check server connection
         try {
             const spinner = (0, ora_1.default)('Checking server connection...').start();
-            const response = await axios_1.default.get(`${this.apiUrl}/projects/${config.projectId}`, {
-                headers: this.authManager.getAuthHeader()
+            const response = await axios_1.default.get(`${apiUrl}/projects/${config.projectId}`, {
+                headers: this.authManager.getAuthHeader(),
+                timeout: 5000 // 5 second timeout
             });
             const project = response.data;
             spinner.stop();

@@ -5,7 +5,17 @@ All notable changes to FlowSpec CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.3] - 2024-12-29
+## [1.1.4] - 2025-12-30
+
+### 🐛 Fixed
+- **Connection Timeout**: Fixed axios timeout issue causing CLI to hang on server connection checks
+- **Local Development**: Improved reliability when connecting to local Brain Server instances
+
+### 🔧 Improved
+- **Network Resilience**: Added 5-second timeout to API requests for better user experience
+- **Error Handling**: Better timeout handling for server connectivity checks
+
+## [1.1.3] - 2025-12-29
 
 ### 🚀 Added
 - **Auto-Installation**: Automatically installs Vitest and testing dependencies when missing

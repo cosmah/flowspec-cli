@@ -37,7 +37,27 @@ export class AuthManager {
 
   constructor() {
     this.credentialsPath = path.join(os.homedir(), '.flowspec', 'credentials.json');
-    this.apiUrl = process.env.FLOWSPEC_API_URL || 'https://api.cosmah.me';
+    
+    // Check for API URL in environment variable first
+    // Then check current project config if available
+    let apiUrl = process.env.FLOWSPEC_API_URL;
+    
+    if (!apiUrl) {
+      // Try to get API URL from project config
+      const projectConfigPath = path.join(process.cwd(), '.flowspec', 'config.json');
+      if (fs.existsSync(projectConfigPath)) {
+        try {
+          const config = JSON.parse(fs.readFileSync(projectConfigPath, 'utf-8'));
+          if (config.apiUrl) {
+            apiUrl = config.apiUrl;
+          }
+        } catch (error) {
+          // Ignore config read errors
+        }
+      }
+    }
+    
+    this.apiUrl = apiUrl || 'https://api.cosmah.me';
     
     // Ensure .flowspec directory exists
     const flowspecDir = path.dirname(this.credentialsPath);

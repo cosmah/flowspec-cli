@@ -34,7 +34,27 @@ export class ProjectManager {
   constructor() {
     this.authManager = new AuthManager();
     this.codeParser = new CodeParser();
-    this.apiUrl = process.env.FLOWSPEC_API_URL || 'https://api.cosmah.me';
+    
+    // Check for API URL in environment variable first
+    // Then check existing project config if available
+    let apiUrl = process.env.FLOWSPEC_API_URL;
+    
+    if (!apiUrl) {
+      // Try to get API URL from existing project config
+      const projectConfigPath = path.join(process.cwd(), '.flowspec', 'config.json');
+      if (fs.existsSync(projectConfigPath)) {
+        try {
+          const config = JSON.parse(fs.readFileSync(projectConfigPath, 'utf-8'));
+          if (config.apiUrl) {
+            apiUrl = config.apiUrl;
+          }
+        } catch (error) {
+          // Ignore config read errors
+        }
+      }
+    }
+    
+    this.apiUrl = apiUrl || 'https://api.cosmah.me';
   }
 
   /**
@@ -166,9 +186,12 @@ export class ProjectManager {
 
       spinner.text = 'Uploading to AI context...';
 
+      // Use API URL from config if available, otherwise use instance default
+      const apiUrl = config.apiUrl || this.apiUrl;
+
       // Upload to server
       await axios.post(
-        `${this.apiUrl}/embed-files`,
+        `${apiUrl}/embed-files`,
         {
           files: fileChunks,
           collection_name: `project_${config.projectId}`
@@ -226,14 +249,18 @@ export class ProjectManager {
     console.log(chalk.gray(`   Framework: ${config.framework}`));
     console.log(chalk.gray(`   Project ID: ${config.projectId}`));
 
+    // Use API URL from config if available, otherwise use instance default
+    const apiUrl = config.apiUrl || this.apiUrl;
+
     // Check server connection
     try {
       const spinner = ora('Checking server connection...').start();
       
       const response = await axios.get(
-        `${this.apiUrl}/projects/${config.projectId}`,
+        `${apiUrl}/projects/${config.projectId}`,
         {
-          headers: this.authManager.getAuthHeader()
+          headers: this.authManager.getAuthHeader(),
+          timeout: 5000 // 5 second timeout
         }
       );
 
