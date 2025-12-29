@@ -148,6 +148,5 @@ npm install -D vitest @testing-library/react jsdom
 
 ## Support
 
-- Documentation: https://docs.flowspec.dev
-- Issues: https://github.com/flowspec/cli/issues
-- Discord: https://discord.gg/flowspec
+- Documentation: https://docs.cosmah.me
+- Issues: https://github.com/cosmah/flowspec-cli/issues

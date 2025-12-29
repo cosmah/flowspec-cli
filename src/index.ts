@@ -10,8 +10,13 @@ import chalk from 'chalk';
 import { AuthManager } from './auth/manager';
 import { ProjectManager } from './project/manager';
 import { TestGenerator } from './test/generator';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 const program = new Command();
+
+// Read version from package.json
+const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'));
 
 // Initialize managers
 const authManager = new AuthManager();
@@ -21,7 +26,7 @@ const testGenerator = new TestGenerator();
 program
   .name('flowspec')
   .description('FlowSpec CLI - Autonomous React test generation')
-  .version('1.0.0');
+  .version(packageJson.version);
 
 // Authentication commands
 program

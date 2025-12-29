@@ -13,7 +13,11 @@ const chalk_1 = __importDefault(require("chalk"));
 const manager_1 = require("./auth/manager");
 const manager_2 = require("./project/manager");
 const generator_1 = require("./test/generator");
+const fs_1 = require("fs");
+const path_1 = require("path");
 const program = new commander_1.Command();
+// Read version from package.json
+const packageJson = JSON.parse((0, fs_1.readFileSync)((0, path_1.join)(__dirname, '../package.json'), 'utf8'));
 // Initialize managers
 const authManager = new manager_1.AuthManager();
 const projectManager = new manager_2.ProjectManager();
@@ -21,7 +25,7 @@ const testGenerator = new generator_1.TestGenerator();
 program
     .name('flowspec')
     .description('FlowSpec CLI - Autonomous React test generation')
-    .version('1.0.0');
+    .version(packageJson.version);
 // Authentication commands
 program
     .command('register')

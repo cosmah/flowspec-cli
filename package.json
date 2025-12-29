@@ -1,6 +1,6 @@
 {
   "name": "@cosmah/flowspec-cli",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "FlowSpec CLI - Autonomous React test generation",
   "main": "dist/index.js",
   "bin": {
@@ -25,7 +25,7 @@
   ],
   "author": "FlowSpec Team",
   "license": "MIT",
-  "homepage": "https://flowspec.dev",
+  "homepage": "https://cosmah.me",
   "repository": {
     "type": "git",
     "url": "https://github.com/cosmah/flowspec-cli.git"
