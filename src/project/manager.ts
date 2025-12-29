@@ -174,7 +174,8 @@ export class ProjectManager {
           collection_name: `project_${config.projectId}`
         },
         {
-          headers: this.authManager.getAuthHeader()
+          headers: this.authManager.getAuthHeader(),
+          timeout: 300000 // 5 minutes timeout for embedding
         }
       );
 
@@ -320,10 +321,72 @@ export class ProjectManager {
     const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
     
     if (!dependencies.vitest) {
-      console.log(chalk.yellow('\n⚠️  Vitest not found. Please install it:'));
-      console.log(chalk.gray('   npm install -D vitest @testing-library/react jsdom'));
-      console.log(chalk.gray('   # or'));
-      console.log(chalk.gray('   yarn add -D vitest @testing-library/react jsdom'));
+      console.log(chalk.yellow('\n⚠️  Vitest not found. Installing required dependencies...'));
+      
+      const spinner = ora('Installing Vitest and testing dependencies...').start();
+      
+      try {
+        const { execSync } = require('child_process');
+        
+        // Detect package manager
+        const hasYarnLock = fs.existsSync(path.join(projectRoot, 'yarn.lock'));
+        const hasPnpmLock = fs.existsSync(path.join(projectRoot, 'pnpm-lock.yaml'));
+        
+        let installCmd: string;
+        if (hasPnpmLock) {
+          installCmd = 'pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom';
+        } else if (hasYarnLock) {
+          installCmd = 'yarn add -D vitest @testing-library/react @testing-library/jest-dom jsdom';
+        } else {
+          installCmd = 'npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom';
+        }
+        
+        execSync(installCmd, { 
+          cwd: projectRoot, 
+          stdio: 'pipe' 
+        });
+        
+        spinner.succeed('Testing dependencies installed successfully!');
+        
+        // Create basic vitest config if it doesn't exist
+        const vitestConfigPath = path.join(projectRoot, 'vitest.config.ts');
+        if (!fs.existsSync(vitestConfigPath)) {
+          const vitestConfig = `/// <reference types="vitest" />
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
+})`;
+          
+          fs.writeFileSync(vitestConfigPath, vitestConfig);
+          
+          // Create test setup file
+          const testDir = path.join(projectRoot, 'src', 'test');
+          if (!fs.existsSync(testDir)) {
+            fs.mkdirSync(testDir, { recursive: true });
+          }
+          
+          const setupContent = `import '@testing-library/jest-dom'`;
+          fs.writeFileSync(path.join(testDir, 'setup.ts'), setupContent);
+          
+          console.log(chalk.green('✅ Created vitest.config.ts and test setup'));
+        }
+        
+      } catch (error) {
+        spinner.fail('Failed to install dependencies');
+        console.log(chalk.yellow('\n⚠️  Please install manually:'));
+        console.log(chalk.gray('   npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom'));
+        console.log(chalk.gray('   # or'));
+        console.log(chalk.gray('   yarn add -D vitest @testing-library/react @testing-library/jest-dom jsdom'));
+      }
+    } else {
+      console.log(chalk.green('✅ Vitest dependencies found'));
     }
   }
 }
