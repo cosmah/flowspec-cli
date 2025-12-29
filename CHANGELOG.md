@@ -1,0 +1,92 @@
+# Changelog
+
+All notable changes to FlowSpec CLI will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.1.3] - 2024-12-29
+
+### 🚀 Added
+- **Auto-Installation**: Automatically installs Vitest and testing dependencies when missing
+- **Package Manager Detection**: Supports npm, yarn, and pnpm automatically
+- **Vitest Configuration**: Auto-generates `vitest.config.ts` and test setup files
+- **Enhanced Dashboard**: Professional web dashboard with analytics and project management
+- **Batch Processing**: Embedding now processes files in batches of 50 for better performance
+- **UUID Point IDs**: Proper UUID generation for Qdrant vector storage
+- **Connection Testing**: Qdrant connection validation on startup
+- **Better Progress Feedback**: Detailed progress indicators during embedding
+- **Comprehensive Documentation**: Updated README with examples and troubleshooting
+
+### 🔧 Improved
+- **Error Handling**: Better error messages and graceful degradation
+- **Timeout Management**: 5-minute timeout for embedding operations
+- **Connection Resilience**: Continues operation even when Qdrant is unavailable
+- **CLI Feedback**: More informative status messages and progress indicators
+- **Code Quality**: Enhanced TypeScript types and error handling
+
+### 🐛 Fixed
+- **Embedding Timeout**: Fixed timeout issues during codebase embedding
+- **Qdrant Compatibility**: Fixed point ID format issues with Qdrant
+- **Tool Installation**: Resolved Vitest installation detection and setup
+- **Connection Errors**: Better handling of network and API errors
+- **Memory Management**: Improved handling of large codebases
+
+### 📚 Documentation
+- **Enhanced README**: Comprehensive documentation with examples
+- **Troubleshooting Guide**: Common issues and solutions
+- **API Documentation**: Better command descriptions and usage examples
+- **Configuration Guide**: Detailed setup and configuration instructions
+
+## [1.0.2] - 2024-12-20
+
+### 🐛 Fixed
+- Authentication token persistence
+- Project initialization edge cases
+- CLI command parsing improvements
+
+## [1.0.1] - 2024-12-15
+
+### 🔧 Improved
+- Better error messages for authentication failures
+- Improved project detection logic
+- Enhanced CLI help text
+
+## [1.0.0] - 2024-12-10
+
+### 🚀 Initial Release
+- **Core Features**: AI-powered test generation for React components
+- **Authentication**: JWT-based user authentication
+- **Project Management**: Project initialization and configuration
+- **Code Embedding**: Codebase analysis and context embedding
+- **Test Generation**: GPT-4 powered test creation
+- **Self-Healing**: Automatic test repair on failures
+- **Dashboard Integration**: Web dashboard for project management
+- **CLI Interface**: Comprehensive command-line interface
+
+### 📋 Commands
+- `flowspec signup/login/logout` - Authentication management
+- `flowspec init` - Project initialization
+- `flowspec embed` - Codebase embedding
+- `flowspec generate` - Test generation
+- `flowspec watch` - File watching and auto-generation
+- `flowspec status` - Project status and diagnostics
+- `flowspec dashboard` - Open web dashboard
+
+### 🎯 Supported
+- **Frameworks**: React (TypeScript/JavaScript)
+- **Testing**: Vitest with React Testing Library
+- **Node.js**: Version 16 and above
+- **Package Managers**: npm, yarn, pnpm
+
+---
+
+## Legend
+
+- 🚀 **Added**: New features
+- 🔧 **Improved**: Enhancements to existing features  
+- 🐛 **Fixed**: Bug fixes
+- 📚 **Documentation**: Documentation changes
+- ⚠️ **Deprecated**: Features that will be removed
+- 🗑️ **Removed**: Features that were removed
+- 🔒 **Security**: Security improvements

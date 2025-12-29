@@ -1,152 +1,283 @@
 # FlowSpec CLI
 
-Autonomous React test generation powered by AI.
+🚀 **AI-powered autonomous React test generation with self-healing capabilities**
 
-## Installation
+FlowSpec automatically generates, executes, and maintains comprehensive test suites for your React applications using GPT-4. Zero configuration, maximum coverage.
+
+[![npm version](https://badge.fury.io/js/%40cosmah%2Fflowspec-cli.svg)](https://badge.fury.io/js/%40cosmah%2Fflowspec-cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+## ✨ Features
+
+- 🤖 **AI-Powered Generation** - GPT-4 analyzes your components and generates comprehensive tests
+- 🔄 **Self-Healing Tests** - Automatically fixes failing tests when code changes
+- 📊 **Real-time Dashboard** - Monitor coverage, performance, and team productivity
+- ⚡ **Zero Configuration** - Works out of the box with any React project
+- 🎯 **Smart Context** - Uses codebase embedding for intelligent test generation
+- 🔧 **Auto-Installation** - Automatically installs and configures Vitest dependencies
+- 🌐 **Cloud Integration** - Sync with FlowSpec dashboard for team collaboration
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
 # Install globally
 npm install -g @cosmah/flowspec-cli
+
+# Verify installation
+flowspec --version
 ```
 
-## Quick Start
+### Get Started in 3 Steps
 
 ```bash
-# 1. Create account
-flowspec register
-# or
+# 1. Create account and login
 flowspec signup
-
-# 2. Login (if you already have an account)
 flowspec login
 
-# 3. Initialize in your React project
+# 2. Initialize in your React project
 cd my-react-app
 flowspec init
 
-# 4. Embed your codebase for AI context
-flowspec embed
-
-# 5. Generate tests automatically
-flowspec watch
-
-# Or generate for specific files
-flowspec generate src/components/Button.tsx
+# 3. Start generating tests
+flowspec embed    # Embed codebase for AI context
+flowspec watch    # Start watching for changes
 ```
 
-## Commands
+## 📋 Commands
 
 ### Authentication
-- `flowspec register` - Create a new FlowSpec account
-- `flowspec signup` - Create a new FlowSpec account (alias)
-- `flowspec login` - Login to existing account
-- `flowspec logout` - Logout from FlowSpec
+```bash
+flowspec signup              # Create new account
+flowspec login               # Login to existing account  
+flowspec logout              # Logout from FlowSpec
+```
 
 ### Project Management
-- `flowspec init` - Initialize FlowSpec in current project
-- `flowspec embed` - Embed codebase for AI context
-- `flowspec status` - Show project status and info
+```bash
+flowspec init                # Initialize FlowSpec in project
+flowspec embed               # Embed codebase for AI context
+flowspec status              # Show project status and info
+flowspec dashboard           # Open web dashboard
+```
 
 ### Test Generation
-- `flowspec generate <files...>` - Generate tests for specific files
-- `flowspec watch` - Watch for changes and auto-generate tests
-- `flowspec dashboard` - Open web dashboard
+```bash
+flowspec generate <files>    # Generate tests for specific files
+flowspec watch               # Auto-generate tests on file changes
+```
 
-### Utility
-- `flowspec uninstall` - Show uninstall instructions
-- `flowspec --help` - Show all commands
-- `flowspec --version` - Show version
+## 🛠️ How It Works
 
-## Configuration
+### 1. **AI Analysis**
+FlowSpec uses GPT-4 to analyze your React components, understanding:
+- Component structure and props
+- State management patterns  
+- User interaction flows
+- Edge cases and error scenarios
 
-FlowSpec creates a `.flowspec/config.json` file in your project:
+### 2. **Intelligent Context**
+Your codebase is embedded using OpenAI embeddings to provide relevant context:
+- Related components and utilities
+- Type definitions and interfaces
+- Custom hooks and helpers
+- Project-specific patterns
 
+### 3. **Comprehensive Test Generation**
+Generated tests include:
+- ✅ Component rendering tests
+- ✅ User interaction scenarios  
+- ✅ Props validation and edge cases
+- ✅ Error boundary testing
+- ✅ Accessibility checks
+- ✅ Performance assertions
+
+### 4. **Self-Healing Capabilities**
+When tests fail due to code changes:
+- 🔍 Analyzes failure reasons
+- 🔧 Automatically fixes test code
+- ✅ Re-runs until tests pass
+- 📊 Reports success metrics
+
+## 📁 Project Structure
+
+After initialization, FlowSpec creates:
+
+```
+my-react-app/
+├── .flowspec/
+│   ├── config.json          # Project configuration
+│   └── temp_test.test.tsx    # Temporary test files
+├── vitest.config.ts          # Auto-generated Vitest config
+└── src/
+    └── test/
+        └── setup.ts          # Test setup file
+```
+
+## ⚙️ Configuration
+
+### Project Config (`.flowspec/config.json`)
 ```json
 {
-  "projectId": "proj_123",
-  "userId": "user_456", 
-  "name": "My App",
+  "projectId": "proj_abc123",
+  "userId": "user_xyz789",
+  "name": "My React App", 
   "framework": "react",
   "apiUrl": "https://api.cosmah.me"
 }
 ```
 
-## Environment Variables
-
-- `FLOWSPEC_API_URL` - API Server URL (default: https://api.cosmah.me)
-
-## Requirements
-
-- Node.js 16+
-- React/Vue/Svelte project with package.json
-- Vitest for test execution
-
-## How It Works
-
-1. **Authentication**: Secure JWT-based auth with FlowSpec cloud
-2. **Project Initialization**: Links your local project to FlowSpec cloud
-3. **Code Embedding**: Analyzes and uploads code context for AI
-4. **Test Generation**: AI generates comprehensive Vitest tests
-5. **Self-Healing**: Automatically fixes failing tests
-6. **Dashboard**: View results and analytics in web UI
-
-## Supported Frameworks
-
-- ✅ React (TypeScript/JavaScript)
-- 🚧 Vue (coming soon)
-- 🚧 Svelte (coming soon)
-
-## File Patterns
-
-FlowSpec automatically detects and generates tests for:
-
-- `src/**/*.{tsx,jsx}` - React components
-- `components/**/*.{tsx,jsx}` - Component directories
-- `lib/**/*.{tsx,jsx}` - Library components
-
-Files must:
-- Start with capital letter (PascalCase)
-- Export a React component
-- Not be test files (*.test.*, *.spec.*)
-
-## Examples
-
-### Generate tests for a component
+### Environment Variables
 ```bash
+FLOWSPEC_API_URL=https://api.cosmah.me  # API server URL
+```
+
+### Vitest Config (Auto-generated)
+```typescript
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
+})
+```
+
+## 🎯 Supported Patterns
+
+### Component Types
+- ✅ Functional components with hooks
+- ✅ Components with TypeScript props
+- ✅ Components with state management
+- ✅ Higher-order components (HOCs)
+- ✅ Context providers and consumers
+
+### Testing Frameworks
+- ✅ **Vitest** (Primary, auto-installed)
+- ✅ **React Testing Library** (Auto-installed)
+- ✅ **Jest DOM** (Auto-installed)
+- 🚧 Jest (Coming soon)
+- 🚧 Cypress (Coming soon)
+
+### Frameworks
+- ✅ **React** (TypeScript/JavaScript)
+- 🚧 Vue 3 (Coming soon)
+- 🚧 Svelte (Coming soon)
+
+## 📊 Dashboard Integration
+
+Access your FlowSpec dashboard at [https://dashboard.cosmah.me](https://dashboard.cosmah.me) to:
+
+- 📈 View test coverage analytics
+- 👥 Collaborate with team members
+- 🔍 Monitor test performance
+- 📋 Track project progress
+- ⚙️ Manage account settings
+
+## 🔧 Advanced Usage
+
+### Generate Tests for Specific Files
+```bash
+# Single file
 flowspec generate src/components/Button.tsx
-# Creates: src/components/Button.test.tsx
+
+# Multiple files  
+flowspec generate src/components/*.tsx
+
+# With watch mode
+flowspec generate src/components/Button.tsx --watch
 ```
 
-### Watch mode for automatic generation
+### Custom Project Initialization
 ```bash
-flowspec watch
-# Monitors file changes and generates tests automatically
+# Specify project name and framework
+flowspec init --name "My App" --framework react
 ```
 
-### Check project status
+### Check Connection Status
 ```bash
 flowspec status
-# Shows authentication, project info, and server connection
+# Shows:
+# ✅ Authentication status
+# ✅ Project configuration  
+# ✅ Server connection
+# ✅ Test statistics
 ```
 
-## Troubleshooting
+## 🚨 Troubleshooting
 
-### "Project not initialized"
-Run `flowspec init` in your project root.
+### Common Issues
 
-### "Not logged in"
-Run `flowspec login` or `flowspec signup`.
-
-### "Cannot connect to FlowSpec server"
-Make sure the Brain Server is running on the configured URL.
-
-### "Vitest not found"
-Install Vitest in your project:
+**"Project not initialized"**
 ```bash
-npm install -D vitest @testing-library/react jsdom
+flowspec init
 ```
 
-## Support
+**"Not logged in"**  
+```bash
+flowspec login
+```
 
-- Documentation: https://docs.cosmah.me
-- Issues: https://github.com/cosmah/flowspec-cli/issues
+**"Vitest not found"**
+FlowSpec now auto-installs Vitest! If manual installation is needed:
+```bash
+npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
+```
+
+**"Embedding failed: timed out"**
+- Check internet connection
+- Verify OpenAI API is accessible
+- Try with smaller codebase first
+
+**"Cannot connect to FlowSpec server"**
+- Check if `https://api.cosmah.me` is accessible
+- Verify authentication with `flowspec status`
+
+### Debug Mode
+```bash
+# Enable verbose logging
+DEBUG=flowspec* flowspec embed
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+```bash
+git clone https://github.com/cosmah/flowspec-cli.git
+cd flowspec-cli
+npm install
+npm run dev
+```
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🔗 Links
+
+- 🌐 **Website**: [https://cosmah.me](https://cosmah.me)
+- 📊 **Dashboard**: [https://dashboard.cosmah.me](https://dashboard.cosmah.me)  
+- 📚 **Documentation**: [https://docs.cosmah.me](https://docs.cosmah.me)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/cosmah/flowspec-cli/issues)
+- 💬 **Support**: [support@cosmah.me](mailto:support@cosmah.me)
+
+## 🎉 What's New in v1.1.0
+
+- ✅ **Auto-Installation**: Automatically installs Vitest dependencies
+- ✅ **Better Error Handling**: Improved timeout and connection handling  
+- ✅ **UUID Point IDs**: Fixed Qdrant compatibility issues
+- ✅ **Batch Processing**: Faster embedding with 50-chunk batches
+- ✅ **Enhanced Dashboard**: Professional UI with analytics
+- ✅ **Self-Healing Tests**: Automatic test repair on failures
+- ✅ **Improved CLI**: Better progress feedback and error messages
+
+---
+
+**Made with ❤️ by the FlowSpec Team**
