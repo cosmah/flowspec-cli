@@ -5,6 +5,20 @@ All notable changes to FlowSpec CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.7] - 2025-12-30
+
+### 🚀 Enhanced
+- **Post-Processing Validation**: Added automatic post-processing to fix common test generation issues
+- **Jest Syntax Auto-Fix**: Automatically converts `jest.fn()` → `vi.fn()`, `jest.mock()` → `vi.mock()`, etc.
+- **Import Auto-Fix**: Automatically adds missing Vitest imports if functions are used without imports
+- **Triple-Slash Removal**: Automatically removes incorrect `/// <reference types="vitest" />` directives
+- **Test Script Auto-Add**: Automatically adds `"test": "vitest"` script to package.json during initialization
+
+### 🐛 Fixed
+- **Installation Completeness**: Now installs all required dependencies including `@vitejs/plugin-react` and `vite`
+- **Dependency Detection**: Improved check to verify all required dependencies are present, not just vitest
+- **Test Script Management**: Ensures test script exists in package.json even when dependencies are already installed
+
 ## [2.0.6] - 2025-12-30
 
 ### 🚀 Enhanced
@@ -12,10 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Comprehensive Vitest Examples**: Added detailed Vitest mocking examples and patterns directly in generator prompt
 - **TypeScript Type Configuration**: ProjectManager now automatically configures tsconfig.json with Vitest types (`vitest/globals`, `@testing-library/jest-dom`)
 - **Enhanced TypeScript Support**: Generator prompt includes explicit TypeScript typing requirements and examples
+- **Explicit Import Strategy**: Generator now uses explicit ES6 imports from 'vitest' instead of triple-slash references
+- **Import Path Intelligence**: Generator now correctly handles import paths for Next.js App Router, Pages Router, and plain React projects
 
 ### 🐛 Fixed
-- **TypeScript Type Errors**: Fixed TypeScript errors in generated test files by ensuring `/// <reference types="vitest" />` is included
-- **Vitest Syntax Accuracy**: Generator now follows Vitest documentation patterns exactly, reducing syntax errors
+- **TypeScript Type Errors**: Fixed by using explicit imports (`import { describe, it, expect } from 'vitest'`) instead of triple-slash references
+- **Vitest Syntax Accuracy**: Generator now follows Vitest best practices with explicit imports, matching production-ready test patterns
+- **Import Path Errors**: Fixed incorrect import paths for Next.js App Router components (now uses `./page` instead of relative paths)
+- **Test File Structure**: Corrected test file structure to match industry best practices (explicit imports, proper mocking order)
 
 ## [2.0.5] - 2025-12-30
 

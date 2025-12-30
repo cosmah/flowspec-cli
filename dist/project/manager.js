@@ -307,8 +307,9 @@ class ProjectManager {
      */
     async ensureVitest(projectRoot, packageJson) {
         const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
-        if (!dependencies.vitest) {
-            console.log(chalk_1.default.yellow('\n⚠️  Vitest not found. Installing required dependencies...'));
+        const needsInstall = !dependencies.vitest || !dependencies['@vitejs/plugin-react'] || !dependencies.vite;
+        if (needsInstall) {
+            console.log(chalk_1.default.yellow('\n⚠️  Vitest dependencies not found. Installing required dependencies...'));
             const spinner = (0, ora_1.default)('Installing Vitest and testing dependencies...').start();
             try {
                 const { execSync } = require('child_process');
@@ -316,20 +317,24 @@ class ProjectManager {
                 const hasYarnLock = fs.existsSync(path.join(projectRoot, 'yarn.lock'));
                 const hasPnpmLock = fs.existsSync(path.join(projectRoot, 'pnpm-lock.yaml'));
                 let installCmd;
+                // Install all required dependencies: vitest, testing libraries, jsdom, and vite plugins
+                const deps = 'vitest @testing-library/react @testing-library/jest-dom jsdom @vitejs/plugin-react vite';
                 if (hasPnpmLock) {
-                    installCmd = 'pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom';
+                    installCmd = `pnpm add -D ${deps}`;
                 }
                 else if (hasYarnLock) {
-                    installCmd = 'yarn add -D vitest @testing-library/react @testing-library/jest-dom jsdom';
+                    installCmd = `yarn add -D ${deps}`;
                 }
                 else {
-                    installCmd = 'npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom';
+                    installCmd = `npm install -D ${deps}`;
                 }
                 execSync(installCmd, {
                     cwd: projectRoot,
                     stdio: 'pipe'
                 });
                 spinner.succeed('Testing dependencies installed successfully!');
+                // Ensure test script exists in package.json
+                await this.ensureTestScript(projectRoot);
                 // Create basic vitest config if it doesn't exist
                 const vitestConfigPath = path.join(projectRoot, 'vitest.config.ts');
                 if (!fs.existsSync(vitestConfigPath)) {
@@ -361,15 +366,43 @@ export default defineConfig({
             catch (error) {
                 spinner.fail('Failed to install dependencies');
                 console.log(chalk_1.default.yellow('\n⚠️  Please install manually:'));
-                console.log(chalk_1.default.gray('   npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom'));
+                console.log(chalk_1.default.gray('   npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom @vitejs/plugin-react vite'));
                 console.log(chalk_1.default.gray('   # or'));
-                console.log(chalk_1.default.gray('   yarn add -D vitest @testing-library/react @testing-library/jest-dom jsdom'));
+                console.log(chalk_1.default.gray('   yarn add -D vitest @testing-library/react @testing-library/jest-dom jsdom @vitejs/plugin-react vite'));
+                console.log(chalk_1.default.gray('   # or'));
+                console.log(chalk_1.default.gray('   pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @vitejs/plugin-react vite'));
             }
         }
         else {
             console.log(chalk_1.default.green('✅ Vitest dependencies found'));
+            // Ensure test script exists even if dependencies are already installed
+            await this.ensureTestScript(projectRoot);
             // Ensure tsconfig.json has Vitest types even if Vitest was already installed
             await this.ensureVitestTypes(projectRoot);
+        }
+    }
+    /**
+     * Ensure test script exists in package.json
+     */
+    async ensureTestScript(projectRoot) {
+        const packageJsonPath = path.join(projectRoot, 'package.json');
+        if (!fs.existsSync(packageJsonPath)) {
+            return;
+        }
+        try {
+            const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+            if (!packageJson.scripts) {
+                packageJson.scripts = {};
+            }
+            // Add test script if it doesn't exist or is different
+            if (!packageJson.scripts.test || packageJson.scripts.test !== 'vitest') {
+                packageJson.scripts.test = 'vitest';
+                fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+                console.log(chalk_1.default.green('✅ Added "test": "vitest" script to package.json'));
+            }
+        }
+        catch (error) {
+            // Silently fail if package.json is invalid
         }
     }
     /**

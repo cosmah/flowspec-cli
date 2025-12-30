@@ -51,6 +51,10 @@ export declare class ProjectManager {
      */
     private ensureVitest;
     /**
+     * Ensure test script exists in package.json
+     */
+    private ensureTestScript;
+    /**
      * Ensure tsconfig.json includes Vitest types
      */
     private ensureVitestTypes;
