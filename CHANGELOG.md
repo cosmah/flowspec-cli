@@ -5,6 +5,18 @@ All notable changes to FlowSpec CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.6] - 2025-12-30
+
+### 🚀 Enhanced
+- **Vitest Documentation Integration**: Generator now references official Vitest documentation (https://vitest.dev) for correct syntax
+- **Comprehensive Vitest Examples**: Added detailed Vitest mocking examples and patterns directly in generator prompt
+- **TypeScript Type Configuration**: ProjectManager now automatically configures tsconfig.json with Vitest types (`vitest/globals`, `@testing-library/jest-dom`)
+- **Enhanced TypeScript Support**: Generator prompt includes explicit TypeScript typing requirements and examples
+
+### 🐛 Fixed
+- **TypeScript Type Errors**: Fixed TypeScript errors in generated test files by ensuring `/// <reference types="vitest" />` is included
+- **Vitest Syntax Accuracy**: Generator now follows Vitest documentation patterns exactly, reducing syntax errors
+
 ## [2.0.5] - 2025-12-30
 
 ### 🐛 Fixed
