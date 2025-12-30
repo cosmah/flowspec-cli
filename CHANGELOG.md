@@ -5,6 +5,43 @@ All notable changes to FlowSpec CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2025-12-30
+
+### 🐛 Fixed
+- **Qdrant Collection Mismatch**: Fixed collection name mismatch between CLI and backend
+- **Docker npm Issue**: Moved Vitest execution from Docker container to user's local machine
+- **Test Execution**: Tests now run locally where npm/vitest are available
+
+### 🔧 Improved
+- **Architecture**: Proper separation between backend (test generation) and CLI (test execution)
+- **Local Verification**: Tests are verified locally after generation
+- **Collection Names**: Dynamic collection names based on project ID
+
+## [2.0.3] - 2025-12-30
+
+### 🔧 Improved
+- **Enhanced Error Logging**: Detailed API error information for debugging test generation failures
+- **Request Visibility**: Shows API requests, component details, and response data
+- **Better Debugging**: HTTP status codes and full error responses displayed
+
+### 🐛 Fixed
+- **Silent Failures**: No more vague "test generation failed" messages
+- **Error Details**: Shows exact backend errors and API response details
+
+## [2.0.2] - 2025-12-30
+
+### 🚀 Added
+- **Auto-Embedding**: `flowspec watch` now automatically embeds codebase for AI context
+- **Simplified Workflow**: Reduced from 4 steps to 3 steps - no manual embedding required
+
+### 🔧 Improved
+- **User Experience**: Single command (`flowspec watch`) now handles everything automatically
+- **Error Handling**: Graceful fallback if embedding fails, continues with limited context
+
+### 📚 Documentation
+- **Updated README**: Simplified workflow documentation
+- **Removed Manual Step**: No longer need to run `flowspec embed` manually
+
 ## [2.0.1] - 2025-12-30
 
 ### 🚀 Added

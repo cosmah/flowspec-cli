@@ -40,6 +40,10 @@ export declare class TestGenerator {
      */
     private getTestFilePath;
     /**
+     * Execute test locally to verify it works
+     */
+    private executeTestLocally;
+    /**
      * Ensure test directory exists
      */
     private ensureTestDirectory;

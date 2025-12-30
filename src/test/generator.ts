@@ -108,13 +108,19 @@ export class TestGenerator {
           this.ensureTestDirectory(testFilePath);
           fs.writeFileSync(testFilePath, result.test_code);
 
+          // Execute test locally to verify it works
+          const testPassed = await this.executeTestLocally(testFilePath, projectRoot);
+
           spinner.succeed(`${testExists ? 'Updated' : 'Generated'} test for ${file}`);
           console.log(chalk.gray(`   Test file: ${path.relative(projectRoot, testFilePath)}`));
-          console.log(chalk.gray(`   Status: ${result.is_passing ? 'Passing' : 'Needs attention'}`));
+          console.log(chalk.gray(`   Status: ${testPassed ? 'Passing' : 'Generated (not verified)'}`));
           console.log(chalk.gray(`   Attempts: ${result.attempts}`));
         } else {
           spinner.fail(`Failed to ${testExists ? 'update' : 'generate'} test for ${file}`);
           console.log(chalk.red(`   Error: ${result.message}`));
+          if (result.error_log) {
+            console.log(chalk.gray(`   Details: ${result.error_log}`));
+          }
         }
 
         results.push({ file, result });
@@ -160,6 +166,15 @@ export class TestGenerator {
     console.log(chalk.gray(`📁 Project: ${config.name}`));
     console.log(chalk.gray(`🔗 API: ${this.apiUrl}`));
     console.log(chalk.gray(`📂 Root: ${projectRoot}\n`));
+
+    // Auto-embed codebase if not done yet
+    console.log(chalk.blue('🧠 Ensuring codebase is embedded for AI context...'));
+    try {
+      await this.projectManager.embedCodebase(projectRoot);
+    } catch (error) {
+      console.log(chalk.yellow('⚠️  Embedding failed, continuing without full context'));
+      console.log(chalk.gray('   You can run "flowspec embed" manually later'));
+    }
 
     const watchPatterns = [
       'src/**/*.{ts,tsx,js,jsx}',
@@ -353,7 +368,8 @@ export class TestGenerator {
       const requestBody: any = {
         project_id: projectId,
         component_code: componentCode,
-        component_path: componentPath
+        component_path: componentPath,
+        collection_name: `project_${projectId}`
       };
 
       // Include existing test for incremental updates
@@ -361,6 +377,9 @@ export class TestGenerator {
         requestBody.existing_test_code = existingTestCode;
         requestBody.update_mode = true;
       }
+
+      console.log(chalk.gray(`   📡 Sending request to ${this.apiUrl}/generate-test`));
+      console.log(chalk.gray(`   📄 Component: ${componentPath} (${componentCode.length} chars)`));
 
       const response = await axios.post(
         `${this.apiUrl}/generate-test`,
@@ -371,15 +390,26 @@ export class TestGenerator {
         }
       );
 
+      console.log(chalk.gray(`   ✅ API Response received`));
       return response.data;
 
     } catch (error: any) {
+      console.log(chalk.red(`   ❌ API Error: ${error.message}`));
+      
+      if (error.response?.status) {
+        console.log(chalk.red(`   📡 HTTP Status: ${error.response.status}`));
+      }
+      
+      if (error.response?.data) {
+        console.log(chalk.red(`   📄 Response: ${JSON.stringify(error.response.data, null, 2)}`));
+      }
+
       if (error.response?.data?.detail) {
         throw new Error(error.response.data.detail);
       } else if (error.code === 'ECONNREFUSED') {
         throw new Error('Cannot connect to FlowSpec server. Make sure it\'s running.');
       } else {
-        throw new Error('Test generation failed. Please try again.');
+        throw new Error(`Test generation failed: ${error.message}`);
       }
     }
   }
@@ -423,6 +453,31 @@ export class TestGenerator {
     const ext = path.extname(componentPath);
     
     return path.join(dir, `${name}.test${ext}`);
+  }
+
+  /**
+   * Execute test locally to verify it works
+   */
+  private async executeTestLocally(testFilePath: string, projectRoot: string): Promise<boolean> {
+    try {
+      console.log(chalk.gray(`   🧪 Running test locally...`));
+      
+      const { execSync } = require('child_process');
+      const relativePath = path.relative(projectRoot, testFilePath);
+      
+      // Try to run the specific test file
+      execSync(`npx vitest run ${relativePath}`, {
+        cwd: projectRoot,
+        stdio: 'pipe',
+        timeout: 30000 // 30 second timeout
+      });
+      
+      console.log(chalk.green(`   ✅ Test passed locally`));
+      return true;
+    } catch (error) {
+      console.log(chalk.yellow(`   ⚠️  Test generated but may need adjustment`));
+      return false;
+    }
   }
 
   /**

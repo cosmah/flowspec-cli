@@ -30,7 +30,7 @@ npm install -g @cosmah/flowspec-cli@latest
 flowspec --version
 ```
 
-### Get Started in 4 Steps
+### Get Started in 3 Steps
 
 ```bash
 # 1. Create account and login
@@ -41,11 +41,8 @@ flowspec login
 cd my-react-app
 flowspec init
 
-# 3. Embed your codebase for AI context
-flowspec embed
-
-# 4. Start intelligent file watching
-flowspec watch    # Generates tests for ALL existing files + watches for changes
+# 3. Start intelligent file watching (auto-embeds codebase)
+flowspec watch    # Automatically embeds codebase + generates tests for ALL existing files + watches for changes
 ```
 
 ## 📋 Commands
