@@ -147,6 +147,9 @@ class TestGenerator {
             return;
         }
         console.log(chalk_1.default.blue('👀 Starting FlowSpec file watcher...\n'));
+        console.log(chalk_1.default.gray(`📁 Project: ${config.name}`));
+        console.log(chalk_1.default.gray(`🔗 API: ${this.apiUrl}`));
+        console.log(chalk_1.default.gray(`📂 Root: ${projectRoot}\n`));
         const watchPatterns = [
             'src/**/*.{ts,tsx,js,jsx}',
             'app/**/*.{ts,tsx,js,jsx}', // Next.js App Router
@@ -154,6 +157,11 @@ class TestGenerator {
             'lib/**/*.{ts,tsx,js,jsx}',
             'pages/**/*.{ts,tsx,js,jsx}' // Next.js Pages Router
         ];
+        console.log(chalk_1.default.blue('👀 Watching patterns:'));
+        watchPatterns.forEach(pattern => {
+            console.log(chalk_1.default.gray(`   ${pattern}`));
+        });
+        console.log();
         this.watcher = chokidar_1.default.watch(watchPatterns, {
             cwd: projectRoot,
             ignored: [
@@ -171,37 +179,72 @@ class TestGenerator {
         });
         let initialScanComplete = false;
         const existingFiles = [];
+        let scannedFiles = 0;
+        let testableFiles = 0;
         this.watcher
             .on('add', (filePath) => {
+            scannedFiles++;
+            console.log(chalk_1.default.gray(`🔍 Scanning: ${filePath}`));
             if (!initialScanComplete) {
                 // Collect existing files during initial scan
                 if (this.isTestableFile(path.resolve(projectRoot, filePath))) {
                     existingFiles.push(filePath);
+                    testableFiles++;
+                    console.log(chalk_1.default.green(`   ✅ Testable component found`));
+                }
+                else {
+                    console.log(chalk_1.default.gray(`   ⏭️  Skipped (not a testable component)`));
                 }
             }
             else {
                 // Handle new files after initial scan
-                this.handleFileChange('added', filePath, projectRoot);
+                if (this.isTestableFile(path.resolve(projectRoot, filePath))) {
+                    console.log(chalk_1.default.green(`📝 New component detected: ${filePath}`));
+                    this.handleFileChange('added', filePath, projectRoot);
+                }
+                else {
+                    console.log(chalk_1.default.gray(`📄 New file (not testable): ${filePath}`));
+                }
             }
         })
-            .on('change', (filePath) => this.handleFileChange('changed', filePath, projectRoot))
+            .on('change', (filePath) => {
+            if (this.isTestableFile(path.resolve(projectRoot, filePath))) {
+                console.log(chalk_1.default.yellow(`📝 Component modified: ${filePath}`));
+                this.handleFileChange('changed', filePath, projectRoot);
+            }
+            else {
+                console.log(chalk_1.default.gray(`📄 File modified (not testable): ${filePath}`));
+            }
+        })
+            .on('unlink', (filePath) => {
+            console.log(chalk_1.default.red(`🗑️  File deleted: ${filePath}`));
+            // TODO: Consider deleting corresponding test file
+        })
             .on('ready', async () => {
             initialScanComplete = true;
+            console.log(chalk_1.default.blue('\n📊 Initial scan complete:'));
+            console.log(chalk_1.default.gray(`   Files scanned: ${scannedFiles}`));
+            console.log(chalk_1.default.gray(`   Testable components: ${testableFiles}`));
+            console.log();
             if (existingFiles.length > 0) {
-                console.log(chalk_1.default.blue(`🔍 Found ${existingFiles.length} existing components`));
-                console.log(chalk_1.default.yellow('📝 Generating tests for existing files...\n'));
+                console.log(chalk_1.default.blue(`🧪 Generating tests for ${existingFiles.length} existing components...\n`));
                 // Generate tests for existing files
-                for (const filePath of existingFiles) {
+                for (let i = 0; i < existingFiles.length; i++) {
+                    const filePath = existingFiles[i];
+                    console.log(chalk_1.default.blue(`[${i + 1}/${existingFiles.length}] Processing: ${filePath}`));
                     try {
                         await this.handleFileChange('existing', filePath, projectRoot);
                     }
                     catch (error) {
-                        console.error(chalk_1.default.red(`❌ Error processing existing file ${filePath}:`), error);
+                        console.error(chalk_1.default.red(`❌ Error processing ${filePath}:`), error);
                     }
                 }
                 console.log(chalk_1.default.green(`\n✅ Initial sync complete! Processed ${existingFiles.length} existing files`));
             }
-            console.log(chalk_1.default.green('✅ FlowSpec watcher is ready and monitoring for changes'));
+            else {
+                console.log(chalk_1.default.yellow('ℹ️  No existing testable components found'));
+            }
+            console.log(chalk_1.default.green('\n🎯 FlowSpec watcher is ready and monitoring for changes'));
             console.log(chalk_1.default.gray('   Press Ctrl+C to stop watching\n'));
         })
             .on('error', (error) => {
@@ -236,14 +279,38 @@ class TestGenerator {
         }
         const eventLabel = event === 'existing' ? 'found' : event;
         console.log(chalk_1.default.blue(`📝 File ${eventLabel}: ${filePath}`));
+        // Check if test already exists and is up to date
+        const testFilePath = this.getTestFilePath(fullPath);
+        const testExists = fs.existsSync(testFilePath);
+        if (testExists && event !== 'existing') {
+            const componentStat = fs.statSync(fullPath);
+            const testStat = fs.statSync(testFilePath);
+            if (componentStat.mtime <= testStat.mtime) {
+                console.log(chalk_1.default.gray(`   ⏭️  Test is up to date, skipping`));
+                return;
+            }
+            console.log(chalk_1.default.yellow(`   🔄 Test needs update (component is newer)`));
+        }
+        else if (testExists) {
+            console.log(chalk_1.default.yellow(`   🔄 Updating existing test`));
+        }
+        else {
+            console.log(chalk_1.default.green(`   ✨ Creating new test`));
+        }
         // Debounce rapid changes (but not for existing files during initial scan)
         const delay = event === 'existing' ? 0 : 1000;
+        if (delay > 0) {
+            console.log(chalk_1.default.gray(`   ⏱️  Debouncing for ${delay}ms...`));
+        }
         setTimeout(async () => {
             try {
+                console.log(chalk_1.default.blue(`   🚀 Starting test generation...`));
                 await this.generateTests([filePath]);
+                console.log(chalk_1.default.green(`   ✅ Test generation complete\n`));
             }
             catch (error) {
-                console.error(chalk_1.default.red(`❌ Error processing ${filePath}:`), error);
+                console.error(chalk_1.default.red(`   ❌ Error processing ${filePath}:`), error);
+                console.log(); // Add spacing after error
             }
         }, delay);
     }
@@ -288,16 +355,21 @@ class TestGenerator {
         if (!/\.(tsx|jsx)$/.test(filePath)) {
             return false;
         }
-        // Must start with capital letter (component convention)
         const fileName = path.basename(filePath, path.extname(filePath));
-        if (!/^[A-Z]/.test(fileName)) {
-            return false;
-        }
         // Skip test files
         if (/\.(test|spec)\.(tsx|jsx)$/.test(filePath)) {
             return false;
         }
-        return true;
+        // Next.js App Router special files (always testable)
+        const nextJsFiles = ['page', 'layout', 'loading', 'error', 'not-found', 'global-error', 'route', 'template', 'default'];
+        if (nextJsFiles.includes(fileName)) {
+            return true;
+        }
+        // Regular React components (must start with capital letter)
+        if (/^[A-Z]/.test(fileName)) {
+            return true;
+        }
+        return false;
     }
     /**
      * Get test file path for a component

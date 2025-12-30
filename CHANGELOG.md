@@ -5,6 +5,26 @@ All notable changes to FlowSpec CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2025-12-30
+
+### 🚀 Added
+- **Detailed Logging**: Comprehensive console output showing all watcher activities
+- **Next.js App Router Support**: Full support for `page.tsx`, `layout.tsx`, and other Next.js special files
+- **File Scanning Visibility**: Shows which files are being scanned and why they're skipped/included
+- **Progress Indicators**: Real-time progress during initial sync and test generation
+- **Debug Information**: Project info, API endpoints, and watch patterns displayed on startup
+
+### 🔧 Improved
+- **User Experience**: Clear, detailed logging similar to `npm run dev` for better debugging
+- **File Detection**: Enhanced detection of Next.js App Router files (page, layout, loading, error, etc.)
+- **Error Visibility**: Better error reporting with context and file information
+- **Watch Feedback**: Real-time feedback for file additions, changes, and deletions
+
+### 🐛 Fixed
+- **Next.js Detection**: Fixed issue where `page.tsx` and `layout.tsx` were not being detected
+- **Duplicate Logging**: Removed duplicate "Starting watcher" messages
+- **Silent Failures**: Added logging for all file operations and decisions
+
 ## [2.0.0] - 2025-12-30
 
 ### 🚀 Added

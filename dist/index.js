@@ -133,7 +133,6 @@ program
     .description('Watch for file changes and auto-generate tests')
     .action(async () => {
     try {
-        console.log(chalk_1.default.blue('👀 Starting FlowSpec watcher...'));
         await testGenerator.startWatching(process.cwd());
     }
     catch (error) {

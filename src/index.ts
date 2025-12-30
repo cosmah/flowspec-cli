@@ -135,7 +135,6 @@ program
   .description('Watch for file changes and auto-generate tests')
   .action(async () => {
     try {
-      console.log(chalk.blue('👀 Starting FlowSpec watcher...'));
       await testGenerator.startWatching(process.cwd());
     } catch (error) {
       console.error(chalk.red('❌ Watcher failed:'), error);
