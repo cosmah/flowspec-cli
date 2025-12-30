@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **File Writing Logic**: CLI now writes test files whenever test code is generated, regardless of passing status
 - **API URL Detection**: Fixed TestGenerator to read API URL from project config at runtime
 - **Graph State Extraction**: Improved final state extraction in graph engine for better reliability
+- **Vitest Syntax**: Fixed generator to use Vitest syntax (`vi.fn()`, `vi.mock()`) instead of Jest syntax (`jest.fn()`, `jest.mock()`)
 
 ### 🔧 Improved
 - **Error Handling**: Better error messages and debugging information for test generation failures
