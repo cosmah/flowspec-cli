@@ -50,6 +50,10 @@ export declare class ProjectManager {
      * Ensure Vitest is installed
      */
     private ensureVitest;
+    /**
+     * Ensure tsconfig.json includes Vitest types
+     */
+    private ensureVitestTypes;
 }
 export {};
 //# sourceMappingURL=manager.d.ts.map

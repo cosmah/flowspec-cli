@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **API URL Detection**: Fixed TestGenerator to read API URL from project config at runtime
 - **Graph State Extraction**: Improved final state extraction in graph engine for better reliability
 - **Vitest Syntax**: Fixed generator to use Vitest syntax (`vi.fn()`, `vi.mock()`) instead of Jest syntax (`jest.fn()`, `jest.mock()`)
+- **TypeScript Types**: Generator now includes `/// <reference types="vitest" />` directive for proper TypeScript support
+- **tsconfig.json Configuration**: ProjectManager now automatically configures tsconfig.json with Vitest types
+
+### 🚀 Enhanced
+- **Vitest Documentation References**: Generator prompt now references official Vitest documentation (https://vitest.dev) for correct syntax
+- **Comprehensive Examples**: Added detailed Vitest mocking examples and patterns in generator prompt
+- **TypeScript Best Practices**: Enhanced prompt with explicit TypeScript typing requirements and examples
 
 ### 🔧 Improved
 - **Error Handling**: Better error messages and debugging information for test generation failures

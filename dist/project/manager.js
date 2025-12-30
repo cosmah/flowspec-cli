@@ -353,6 +353,8 @@ export default defineConfig({
                     }
                     const setupContent = `import '@testing-library/jest-dom'`;
                     fs.writeFileSync(path.join(testDir, 'setup.ts'), setupContent);
+                    // Update tsconfig.json to include Vitest types
+                    await this.ensureVitestTypes(projectRoot);
                     console.log(chalk_1.default.green('✅ Created vitest.config.ts and test setup'));
                 }
             }
@@ -366,6 +368,71 @@ export default defineConfig({
         }
         else {
             console.log(chalk_1.default.green('✅ Vitest dependencies found'));
+            // Ensure tsconfig.json has Vitest types even if Vitest was already installed
+            await this.ensureVitestTypes(projectRoot);
+        }
+    }
+    /**
+     * Ensure tsconfig.json includes Vitest types
+     */
+    async ensureVitestTypes(projectRoot) {
+        const tsconfigPath = path.join(projectRoot, 'tsconfig.json');
+        if (!fs.existsSync(tsconfigPath)) {
+            // Create a basic tsconfig.json with Vitest types
+            const tsconfig = {
+                compilerOptions: {
+                    target: 'ES2020',
+                    useDefineForClassFields: true,
+                    lib: ['ES2020', 'DOM', 'DOM.Iterable'],
+                    module: 'ESNext',
+                    skipLibCheck: true,
+                    moduleResolution: 'bundler',
+                    allowImportingTsExtensions: true,
+                    resolveJsonModule: true,
+                    isolatedModules: true,
+                    noEmit: true,
+                    jsx: 'react-jsx',
+                    strict: true,
+                    noUnusedLocals: true,
+                    noUnusedParameters: true,
+                    noFallthroughCasesInSwitch: true,
+                    types: ['vitest/globals', '@testing-library/jest-dom']
+                },
+                include: ['src'],
+                references: [{ path: './tsconfig.node.json' }]
+            };
+            fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));
+            return;
+        }
+        try {
+            const tsconfigContent = fs.readFileSync(tsconfigPath, 'utf-8');
+            const tsconfig = JSON.parse(tsconfigContent);
+            // Ensure compilerOptions exists
+            if (!tsconfig.compilerOptions) {
+                tsconfig.compilerOptions = {};
+            }
+            // Ensure types array exists and includes Vitest
+            if (!tsconfig.compilerOptions.types) {
+                tsconfig.compilerOptions.types = [];
+            }
+            const types = tsconfig.compilerOptions.types;
+            if (!Array.isArray(types)) {
+                tsconfig.compilerOptions.types = [types].filter(Boolean);
+            }
+            // Add Vitest types if not present
+            if (!types.includes('vitest/globals')) {
+                types.push('vitest/globals');
+            }
+            if (!types.includes('@testing-library/jest-dom')) {
+                types.push('@testing-library/jest-dom');
+            }
+            // Write back the updated config
+            fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));
+        }
+        catch (error) {
+            // If tsconfig.json is invalid or uses extends, don't modify it
+            console.log(chalk_1.default.yellow('⚠️  Could not update tsconfig.json automatically'));
+            console.log(chalk_1.default.gray('   Please add "vitest/globals" to compilerOptions.types manually'));
         }
     }
 }
