@@ -34,7 +34,27 @@ export class TestGenerator {
   constructor() {
     this.authManager = new AuthManager();
     this.projectManager = new ProjectManager();
-    this.apiUrl = process.env.FLOWSPEC_API_URL || 'https://api.cosmah.me';
+    
+    // Check for API URL in environment variable first
+    // Then check current project config if available
+    let apiUrl = process.env.FLOWSPEC_API_URL;
+    
+    if (!apiUrl) {
+      // Try to get API URL from project config
+      const projectConfigPath = path.join(process.cwd(), '.flowspec', 'config.json');
+      if (fs.existsSync(projectConfigPath)) {
+        try {
+          const config = JSON.parse(fs.readFileSync(projectConfigPath, 'utf-8'));
+          if (config.apiUrl) {
+            apiUrl = config.apiUrl;
+          }
+        } catch (error) {
+          // Ignore config read errors
+        }
+      }
+    }
+    
+    this.apiUrl = apiUrl || 'https://api.cosmah.me';
   }
 
   /**
@@ -46,6 +66,11 @@ export class TestGenerator {
     
     if (!config) {
       throw new Error('Project not initialized. Run "flowspec init" first.');
+    }
+
+    // Update API URL from project config if available
+    if (config.apiUrl) {
+      this.apiUrl = config.apiUrl;
     }
 
     await this.authManager.ensureAuthenticated();
@@ -103,21 +128,33 @@ export class TestGenerator {
           existingTestCode
         );
 
-        if (result.success) {
-          // Save test file
-          this.ensureTestDirectory(testFilePath);
-          fs.writeFileSync(testFilePath, result.test_code);
+        // Write test file if test_code exists and has content, regardless of passing status
+        // This allows tests to be created even if they need fixes
+        if (result.test_code && result.test_code.trim().length > 0) {
+          try {
+            // Save test file
+            this.ensureTestDirectory(testFilePath);
+            fs.writeFileSync(testFilePath, result.test_code, 'utf-8');
 
-          // Execute test locally to verify it works
-          const testPassed = await this.executeTestLocally(testFilePath, projectRoot);
+            // Execute test locally to verify it works
+            const testPassed = await this.executeTestLocally(testFilePath, projectRoot);
 
-          spinner.succeed(`${testExists ? 'Updated' : 'Generated'} test for ${file}`);
-          console.log(chalk.gray(`   Test file: ${path.relative(projectRoot, testFilePath)}`));
-          console.log(chalk.gray(`   Status: ${testPassed ? 'Passing' : 'Generated (not verified)'}`));
-          console.log(chalk.gray(`   Attempts: ${result.attempts}`));
+            spinner.succeed(`${testExists ? 'Updated' : 'Generated'} test for ${file}`);
+            console.log(chalk.gray(`   Test file: ${path.relative(projectRoot, testFilePath)}`));
+            console.log(chalk.gray(`   Status: ${testPassed ? 'Passing' : 'Generated (needs fixes)'}`));
+            console.log(chalk.gray(`   Attempts: ${result.attempts}`));
+            
+            // Mark as successful since file was written
+            result.success = true;
+          } catch (writeError: any) {
+            spinner.fail(`Failed to write test file for ${file}`);
+            console.log(chalk.red(`   Write error: ${writeError.message}`));
+            result.success = false;
+            result.message = `File write failed: ${writeError.message}`;
+          }
         } else {
           spinner.fail(`Failed to ${testExists ? 'update' : 'generate'} test for ${file}`);
-          console.log(chalk.red(`   Error: ${result.message}`));
+          console.log(chalk.red(`   Error: ${result.message || 'No test code generated'}`));
           if (result.error_log) {
             console.log(chalk.gray(`   Details: ${result.error_log}`));
           }
@@ -155,6 +192,11 @@ export class TestGenerator {
     
     if (!config) {
       throw new Error('Project not initialized. Run "flowspec init" first.');
+    }
+
+    // Update API URL from project config if available
+    if (config.apiUrl) {
+      this.apiUrl = config.apiUrl;
     }
 
     if (this.watcher) {
@@ -391,6 +433,18 @@ export class TestGenerator {
       );
 
       console.log(chalk.gray(`   ✅ API Response received`));
+      
+      // Debug: Log response details
+      if (!response.data.test_code || response.data.test_code.trim().length === 0) {
+        console.log(chalk.yellow(`   ⚠️  Warning: Response has no test_code`));
+        console.log(chalk.gray(`   Response success: ${response.data.success}`));
+        console.log(chalk.gray(`   Response is_passing: ${response.data.is_passing}`));
+        console.log(chalk.gray(`   Response message: ${response.data.message}`));
+        if (response.data.error_log) {
+          console.log(chalk.gray(`   Error log: ${response.data.error_log.substring(0, 200)}`));
+        }
+      }
+      
       return response.data;
 
     } catch (error: any) {

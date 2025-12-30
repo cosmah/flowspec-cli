@@ -5,6 +5,25 @@ All notable changes to FlowSpec CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.5] - 2025-12-30
+
+### 🐛 Fixed
+- **Critical: Test File Creation**: Fixed bug where test files were not being created when tests didn't pass initially
+- **API Response Logic**: Fixed `success` field to indicate test code generation (not test passing status)
+- **File Writing Logic**: CLI now writes test files whenever test code is generated, regardless of passing status
+- **API URL Detection**: Fixed TestGenerator to read API URL from project config at runtime
+- **Graph State Extraction**: Improved final state extraction in graph engine for better reliability
+
+### 🔧 Improved
+- **Error Handling**: Better error messages and debugging information for test generation failures
+- **File Write Operations**: Added try/catch around file write operations with detailed error messages
+- **State Management**: Enhanced graph execution state extraction to handle edge cases
+
+### 📝 Technical Details
+- Separated "generation success" from "test passing" - these are now independent concepts
+- Test files are created even if they need fixes, allowing developers to iterate
+- Better handling of empty test_code responses from API
+
 ## [2.0.4] - 2025-12-30
 
 ### 🐛 Fixed
