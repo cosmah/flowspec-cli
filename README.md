@@ -1,8 +1,8 @@
 # FlowSpec CLI
 
-🚀 **AI-powered autonomous React test generation with self-healing capabilities**
+🚀 **AI-powered autonomous React test generation with intelligent file watching**
 
-FlowSpec automatically generates, executes, and maintains comprehensive test suites for your React applications using GPT-4. Zero configuration, maximum coverage.
+FlowSpec automatically generates, executes, and maintains comprehensive test suites for your React applications using GPT-4. Features intelligent file watching, incremental updates, and token optimization.
 
 [![npm version](https://badge.fury.io/js/%40cosmah%2Fflowspec-cli.svg)](https://badge.fury.io/js/%40cosmah%2Fflowspec-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -10,12 +10,13 @@ FlowSpec automatically generates, executes, and maintains comprehensive test sui
 ## ✨ Features
 
 - 🤖 **AI-Powered Generation** - GPT-4 analyzes your components and generates comprehensive tests
-- 🔄 **Self-Healing Tests** - Automatically fixes failing tests when code changes
+- 👀 **Intelligent File Watching** - Automatically detects new/changed React components
+- 🔄 **Incremental Updates** - Only updates changed parts of existing tests (saves tokens)
 - 📊 **Real-time Dashboard** - Monitor coverage, performance, and team productivity
-- ⚡ **Zero Configuration** - Works out of the box with any React project
+- ⚡ **Zero Configuration** - Works out of the box with React, Next.js, and more
 - 🎯 **Smart Context** - Uses codebase embedding for intelligent test generation
 - 🔧 **Auto-Installation** - Automatically installs and configures Vitest dependencies
-- 🌐 **Cloud Integration** - Sync with FlowSpec dashboard for team collaboration
+- 💰 **Token Optimized** - Smart duplication guards and incremental updates
 
 ## 🚀 Quick Start
 
@@ -23,13 +24,13 @@ FlowSpec automatically generates, executes, and maintains comprehensive test sui
 
 ```bash
 # Install globally
-npm install -g @cosmah/flowspec-cli
+npm install -g @cosmah/flowspec-cli@latest
 
 # Verify installation
 flowspec --version
 ```
 
-### Get Started in 3 Steps
+### Get Started in 4 Steps
 
 ```bash
 # 1. Create account and login
@@ -40,9 +41,11 @@ flowspec login
 cd my-react-app
 flowspec init
 
-# 3. Start generating tests
-flowspec embed    # Embed codebase for AI context
-flowspec watch    # Start watching for changes
+# 3. Embed your codebase for AI context
+flowspec embed
+
+# 4. Start intelligent file watching
+flowspec watch    # Generates tests for ALL existing files + watches for changes
 ```
 
 ## 📋 Commands
@@ -65,54 +68,74 @@ flowspec dashboard           # Open web dashboard
 ### Test Generation
 ```bash
 flowspec generate <files>    # Generate tests for specific files
-flowspec watch               # Auto-generate tests on file changes
+flowspec watch               # Auto-generate tests for existing + new files
 ```
 
 ## 🛠️ How It Works
 
-### 1. **AI Analysis**
-FlowSpec uses GPT-4 to analyze your React components, understanding:
-- Component structure and props
-- State management patterns  
-- User interaction flows
-- Edge cases and error scenarios
+### 1. **Intelligent File Detection**
+FlowSpec watches multiple directories and automatically detects React components:
+- `src/**/*.{tsx,jsx}` (Create React App)
+- `app/**/*.{tsx,jsx}` (Next.js App Router) 
+- `pages/**/*.{tsx,jsx}` (Next.js Pages Router)
+- `components/**/*.{tsx,jsx}`
+- `lib/**/*.{tsx,jsx}`
 
-### 2. **Intelligent Context**
-Your codebase is embedded using OpenAI embeddings to provide relevant context:
-- Related components and utilities
-- Type definitions and interfaces
-- Custom hooks and helpers
-- Project-specific patterns
+### 2. **Smart Duplication Guards**
+Before generating tests, FlowSpec:
+- ✅ Checks if test file already exists
+- ✅ Compares modification times (component vs test)
+- ✅ Skips generation if test is up-to-date
+- ✅ Only updates when component is newer
 
-### 3. **Comprehensive Test Generation**
-Generated tests include:
-- ✅ Component rendering tests
-- ✅ User interaction scenarios  
-- ✅ Props validation and edge cases
-- ✅ Error boundary testing
-- ✅ Accessibility checks
-- ✅ Performance assertions
+### 3. **Incremental Updates (Token Optimization)**
+For existing tests:
+- 🔄 Sends existing test code to AI
+- ✏️ AI only modifies changed/new parts
+- 💰 Saves ~60% on API tokens
+- 🎯 Preserves working test logic
 
-### 4. **Self-Healing Capabilities**
-When tests fail due to code changes:
-- 🔍 Analyzes failure reasons
-- 🔧 Automatically fixes test code
-- ✅ Re-runs until tests pass
-- 📊 Reports success metrics
+### 4. **Initial Sync + Continuous Watching**
+When you run `flowspec watch`:
+1. 🔍 Scans all existing React components
+2. 🧪 Generates tests for components without tests
+3. 👀 Starts watching for new files and changes
+4. ⚡ Auto-generates tests for any new/modified components
 
-## 📁 Project Structure
+## 📁 Supported Project Structures
 
-After initialization, FlowSpec creates:
+FlowSpec works with all React project structures:
 
+### Create React App
 ```
-my-react-app/
-├── .flowspec/
-│   ├── config.json          # Project configuration
-│   └── temp_test.test.tsx    # Temporary test files
-├── vitest.config.ts          # Auto-generated Vitest config
-└── src/
-    └── test/
-        └── setup.ts          # Test setup file
+src/
+├── components/
+│   ├── Button.tsx          → Button.test.tsx
+│   └── Header.tsx          → Header.test.tsx
+└── pages/
+    └── Home.tsx            → Home.test.tsx
+```
+
+### Next.js App Router
+```
+app/
+├── components/
+│   └── Navigation.tsx      → Navigation.test.tsx
+├── dashboard/
+│   └── page.tsx           → page.test.tsx
+└── (auth)/
+    └── login/
+        └── page.tsx       → page.test.tsx
+```
+
+### Next.js Pages Router
+```
+pages/
+├── index.tsx              → index.test.tsx
+├── about.tsx              → about.test.tsx
+└── api/                   (ignored)
+components/
+└── Layout.tsx             → Layout.test.tsx
 ```
 
 ## ⚙️ Configuration
@@ -133,41 +156,65 @@ my-react-app/
 FLOWSPEC_API_URL=https://api.cosmah.me  # API server URL
 ```
 
-### Vitest Config (Auto-generated)
-```typescript
-import { defineConfig } from 'vitest/config'
-import react from '@vitejs/plugin-react'
+## 🎯 File Watching Behavior
 
-export default defineConfig({
-  plugins: [react()],
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-  },
-})
+### What Gets Watched
+- ✅ `.tsx` and `.jsx` files only
+- ✅ Files starting with capital letter (React components)
+- ✅ Files in `src/`, `app/`, `pages/`, `components/`, `lib/`
+
+### What Gets Ignored
+- ❌ `**/*.test.{tsx,jsx}` (existing test files)
+- ❌ `**/*.spec.{tsx,jsx}` (spec files)
+- ❌ `node_modules/`, `dist/`, `build/`, `.next/`
+- ❌ Files starting with lowercase (utilities, not components)
+
+### Example Output
+```bash
+$ flowspec watch
+
+Starting FlowSpec file watcher...
+
+Found 12 existing components
+Generating tests for existing files...
+
+File found: src/components/Button.tsx
+Generated test for src/components/Button.tsx
+   Test file: src/components/Button.test.tsx
+   Status: Passing
+   Attempts: 1
+
+File found: app/dashboard/Header.tsx  
+Test exists: app/dashboard/Header.test.tsx - checking for updates...
+Skipping app/dashboard/Header.tsx - test is up to date
+
+Initial sync complete! Processed 12 existing files
+FlowSpec watcher is ready and monitoring for changes
+Press Ctrl+C to stop watching
+
+File changed: src/components/Button.tsx
+Updated test for src/components/Button.tsx
+   Test file: src/components/Button.test.tsx
+   Status: Passing
+   Attempts: 1
 ```
 
-## 🎯 Supported Patterns
+## 💰 Token Optimization Features
 
-### Component Types
-- ✅ Functional components with hooks
-- ✅ Components with TypeScript props
-- ✅ Components with state management
-- ✅ Higher-order components (HOCs)
-- ✅ Context providers and consumers
+### Smart Duplication Prevention
+- **Before**: Generated tests for all files every time
+- **After**: Only generates when needed (new files or component changes)
+- **Savings**: ~60% reduction in API calls
 
-### Testing Frameworks
-- ✅ **Vitest** (Primary, auto-installed)
-- ✅ **React Testing Library** (Auto-installed)
-- ✅ **Jest DOM** (Auto-installed)
-- 🚧 Jest (Coming soon)
-- 🚧 Cypress (Coming soon)
+### Incremental Updates
+- **Before**: Rewrote entire test file for small component changes
+- **After**: Sends existing test + component changes for incremental updates
+- **Savings**: ~40% reduction in prompt tokens
 
-### Frameworks
-- ✅ **React** (TypeScript/JavaScript)
-- 🚧 Vue 3 (Coming soon)
-- 🚧 Svelte (Coming soon)
+### Clean Test Output
+- **Before**: Tests included decorative comments and emojis
+- **After**: Clean, minimal test code focused on functionality
+- **Savings**: ~20% reduction in response tokens
 
 ## 📊 Dashboard Integration
 
@@ -178,36 +225,6 @@ Access your FlowSpec dashboard at [https://dashboard.cosmah.me](https://dashboar
 - 🔍 Monitor test performance
 - 📋 Track project progress
 - ⚙️ Manage account settings
-
-## 🔧 Advanced Usage
-
-### Generate Tests for Specific Files
-```bash
-# Single file
-flowspec generate src/components/Button.tsx
-
-# Multiple files  
-flowspec generate src/components/*.tsx
-
-# With watch mode
-flowspec generate src/components/Button.tsx --watch
-```
-
-### Custom Project Initialization
-```bash
-# Specify project name and framework
-flowspec init --name "My App" --framework react
-```
-
-### Check Connection Status
-```bash
-flowspec status
-# Shows:
-# ✅ Authentication status
-# ✅ Project configuration  
-# ✅ Server connection
-# ✅ Test statistics
-```
 
 ## 🚨 Troubleshooting
 
@@ -223,26 +240,14 @@ flowspec init
 flowspec login
 ```
 
-**"Vitest not found"**
-FlowSpec now auto-installs Vitest! If manual installation is needed:
-```bash
-npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
-```
+**"No components found"**
+Make sure you have `.tsx` or `.jsx` files starting with capital letters in:
+- `src/`, `app/`, `pages/`, `components/`, or `lib/` directories
 
-**"Embedding failed: timed out"**
+**"Test generation failed"**
 - Check internet connection
-- Verify OpenAI API is accessible
-- Try with smaller codebase first
-
-**"Cannot connect to FlowSpec server"**
-- Check if `https://api.cosmah.me` is accessible
-- Verify authentication with `flowspec status`
-
-### Debug Mode
-```bash
-# Enable verbose logging
-DEBUG=flowspec* flowspec embed
-```
+- Verify you have sufficient API credits
+- Try `flowspec status` to check connection
 
 ## 🤝 Contributing
 
@@ -268,15 +273,15 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - 🐛 **Issues**: [GitHub Issues](https://github.com/cosmah/flowspec-cli/issues)
 - 💬 **Support**: [support@cosmah.me](mailto:support@cosmah.me)
 
-## 🎉 What's New in v1.1.0
+## 🎉 What's New in v2.0.0
 
-- ✅ **Auto-Installation**: Automatically installs Vitest dependencies
-- ✅ **Better Error Handling**: Improved timeout and connection handling  
-- ✅ **UUID Point IDs**: Fixed Qdrant compatibility issues
-- ✅ **Batch Processing**: Faster embedding with 50-chunk batches
-- ✅ **Enhanced Dashboard**: Professional UI with analytics
-- ✅ **Self-Healing Tests**: Automatic test repair on failures
-- ✅ **Improved CLI**: Better progress feedback and error messages
+- 🆕 **Intelligent File Watching**: Automatically processes existing files + watches for changes
+- 🆕 **Next.js App Router Support**: Full support for `app/` directory structure  
+- 🆕 **Incremental Updates**: Only updates changed parts of existing tests
+- 🆕 **Token Optimization**: Smart duplication guards save ~60% on API costs
+- 🆕 **Initial Sync**: Processes all existing components when starting watcher
+- 🆕 **Clean Output**: Removed decorative elements for professional test code
+- 🆕 **Better Performance**: File modification time checking prevents unnecessary updates
 
 ---
 

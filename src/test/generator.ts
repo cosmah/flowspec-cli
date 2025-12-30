@@ -50,7 +50,7 @@ export class TestGenerator {
 
     await this.authManager.ensureAuthenticated();
 
-    console.log(chalk.blue(`\n🧪 Generating tests for ${files.length} files...\n`));
+    console.log(chalk.blue(`\nGenerating tests for ${files.length} files...\n`));
 
     const results = [];
     
@@ -58,39 +58,62 @@ export class TestGenerator {
       const filePath = path.resolve(projectRoot, file);
       
       if (!fs.existsSync(filePath)) {
-        console.log(chalk.red(`❌ File not found: ${file}`));
+        console.log(chalk.red(`File not found: ${file}`));
         continue;
       }
 
       if (!this.isTestableFile(filePath)) {
-        console.log(chalk.yellow(`⏭️  Skipping non-component file: ${file}`));
+        console.log(chalk.yellow(`Skipping non-component file: ${file}`));
         continue;
       }
 
-      const spinner = ora(`Generating test for ${file}...`).start();
+      // Check if test file already exists
+      const testFilePath = this.getTestFilePath(filePath);
+      const testExists = fs.existsSync(testFilePath);
+      
+      if (testExists) {
+        console.log(chalk.gray(`Test exists: ${path.relative(projectRoot, testFilePath)} - checking for updates...`));
+        
+        // Check if component was modified after test file
+        const componentStat = fs.statSync(filePath);
+        const testStat = fs.statSync(testFilePath);
+        
+        if (componentStat.mtime <= testStat.mtime) {
+          console.log(chalk.gray(`Skipping ${file} - test is up to date`));
+          continue;
+        }
+      }
+
+      const spinner = ora(`${testExists ? 'Updating' : 'Creating'} test for ${file}...`).start();
 
       try {
         const componentCode = fs.readFileSync(filePath, 'utf-8');
         const relativePath = path.relative(projectRoot, filePath);
 
+        // For existing tests, include current test content for incremental updates
+        let existingTestCode = '';
+        if (testExists) {
+          existingTestCode = fs.readFileSync(testFilePath, 'utf-8');
+        }
+
         const result = await this.generateTestForComponent(
           config.projectId,
           componentCode,
-          relativePath
+          relativePath,
+          existingTestCode
         );
 
         if (result.success) {
           // Save test file
-          const testFilePath = this.getTestFilePath(filePath);
           this.ensureTestDirectory(testFilePath);
           fs.writeFileSync(testFilePath, result.test_code);
 
-          spinner.succeed(`Generated test for ${file}`);
+          spinner.succeed(`${testExists ? 'Updated' : 'Generated'} test for ${file}`);
           console.log(chalk.gray(`   Test file: ${path.relative(projectRoot, testFilePath)}`));
           console.log(chalk.gray(`   Status: ${result.is_passing ? 'Passing' : 'Needs attention'}`));
           console.log(chalk.gray(`   Attempts: ${result.attempts}`));
         } else {
-          spinner.fail(`Failed to generate test for ${file}`);
+          spinner.fail(`Failed to ${testExists ? 'update' : 'generate'} test for ${file}`);
           console.log(chalk.red(`   Error: ${result.message}`));
         }
 
@@ -106,14 +129,14 @@ export class TestGenerator {
     const successful = results.filter(r => r.result.success).length;
     const failed = results.length - successful;
 
-    console.log(chalk.blue('\n📊 Generation Summary:'));
-    console.log(chalk.green(`   ✅ Successful: ${successful}`));
+    console.log(chalk.blue('\nGeneration Summary:'));
+    console.log(chalk.green(`   Successful: ${successful}`));
     if (failed > 0) {
-      console.log(chalk.red(`   ❌ Failed: ${failed}`));
+      console.log(chalk.red(`   Failed: ${failed}`));
     }
 
     if (options.watch) {
-      console.log(chalk.blue('\n👀 Starting watch mode...'));
+      console.log(chalk.blue('\nStarting watch mode...'));
       await this.startWatching(projectRoot);
     }
   }
@@ -137,8 +160,10 @@ export class TestGenerator {
 
     const watchPatterns = [
       'src/**/*.{ts,tsx,js,jsx}',
+      'app/**/*.{ts,tsx,js,jsx}',  // Next.js App Router
       'components/**/*.{ts,tsx,js,jsx}',
-      'lib/**/*.{ts,tsx,js,jsx}'
+      'lib/**/*.{ts,tsx,js,jsx}',
+      'pages/**/*.{ts,tsx,js,jsx}' // Next.js Pages Router
     ];
 
     this.watcher = chokidar.watch(watchPatterns, {
@@ -154,13 +179,44 @@ export class TestGenerator {
         '.flowspec/**'
       ],
       persistent: true,
-      ignoreInitial: true
+      ignoreInitial: false // Changed to false to process existing files
     });
 
+    let initialScanComplete = false;
+    const existingFiles: string[] = [];
+
     this.watcher
-      .on('add', (filePath) => this.handleFileChange('added', filePath, projectRoot))
+      .on('add', (filePath) => {
+        if (!initialScanComplete) {
+          // Collect existing files during initial scan
+          if (this.isTestableFile(path.resolve(projectRoot, filePath))) {
+            existingFiles.push(filePath);
+          }
+        } else {
+          // Handle new files after initial scan
+          this.handleFileChange('added', filePath, projectRoot);
+        }
+      })
       .on('change', (filePath) => this.handleFileChange('changed', filePath, projectRoot))
-      .on('ready', () => {
+      .on('ready', async () => {
+        initialScanComplete = true;
+        
+        if (existingFiles.length > 0) {
+          console.log(chalk.blue(`🔍 Found ${existingFiles.length} existing components`));
+          console.log(chalk.yellow('📝 Generating tests for existing files...\n'));
+          
+          // Generate tests for existing files
+          for (const filePath of existingFiles) {
+            try {
+              await this.handleFileChange('existing', filePath, projectRoot);
+            } catch (error) {
+              console.error(chalk.red(`❌ Error processing existing file ${filePath}:`), error);
+            }
+          }
+          
+          console.log(chalk.green(`\n✅ Initial sync complete! Processed ${existingFiles.length} existing files`));
+        }
+        
         console.log(chalk.green('✅ FlowSpec watcher is ready and monitoring for changes'));
         console.log(chalk.gray('   Press Ctrl+C to stop watching\n'));
       })
@@ -200,16 +256,19 @@ export class TestGenerator {
       return;
     }
 
-    console.log(chalk.blue(`📝 File ${event}: ${filePath}`));
+    const eventLabel = event === 'existing' ? 'found' : event;
+    console.log(chalk.blue(`📝 File ${eventLabel}: ${filePath}`));
 
-    // Debounce rapid changes
+    // Debounce rapid changes (but not for existing files during initial scan)
+    const delay = event === 'existing' ? 0 : 1000;
+    
     setTimeout(async () => {
       try {
         await this.generateTests([filePath]);
       } catch (error) {
         console.error(chalk.red(`❌ Error processing ${filePath}:`), error);
       }
-    }, 1000);
+    }, delay);
   }
 
   /**
@@ -218,16 +277,25 @@ export class TestGenerator {
   private async generateTestForComponent(
     projectId: string,
     componentCode: string,
-    componentPath: string
+    componentPath: string,
+    existingTestCode?: string
   ): Promise<TestResult> {
     try {
+      const requestBody: any = {
+        project_id: projectId,
+        component_code: componentCode,
+        component_path: componentPath
+      };
+
+      // Include existing test for incremental updates
+      if (existingTestCode) {
+        requestBody.existing_test_code = existingTestCode;
+        requestBody.update_mode = true;
+      }
+
       const response = await axios.post(
         `${this.apiUrl}/generate-test`,
-        {
-          project_id: projectId,
-          component_code: componentCode,
-          component_path: componentPath
-        },
+        requestBody,
         {
           headers: this.authManager.getAuthHeader(),
           timeout: 120000 // 2 minutes timeout for AI generation
