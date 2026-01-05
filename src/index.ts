@@ -167,6 +167,88 @@ program
   });
 
 program
+  .command('coverage')
+  .description('Generate coverage report and open in browser')
+  .option('-o, --output <path>', 'Output path for HTML report')
+  .action(async (options) => {
+    try {
+      const { CoverageVisualizer } = await import('./utils/coverageVisualizer');
+      const visualizer = new CoverageVisualizer(process.cwd());
+      
+      console.log(chalk.blue('📊 Generating coverage report...'));
+      const reportPath = await visualizer.saveReport(options.output);
+      
+      console.log(chalk.green(`✅ Coverage report generated: ${reportPath}`));
+      
+      // Open in browser
+      const open = (await import('open')).default;
+      await open(reportPath);
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to generate coverage report:'), error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('update')
+  .alias('upgrade')
+  .description('Update FlowSpec CLI to the latest version')
+  .action(async () => {
+    try {
+      const axios = (await import('axios')).default;
+      const { execSync } = await import('child_process');
+      
+      const currentVersion = packageJson.version;
+      console.log(chalk.blue(`🔍 Checking for updates...`));
+      console.log(chalk.gray(`   Current version: ${currentVersion}`));
+      
+      // Fetch latest version from npm registry
+      const response = await axios.get('https://registry.npmjs.org/@cosmah/flowspec-cli', {
+        timeout: 5000
+      });
+      
+      const latestVersion = response.data['dist-tags'].latest;
+      console.log(chalk.gray(`   Latest version: ${latestVersion}`));
+      
+      if (currentVersion === latestVersion) {
+        console.log(chalk.green(`✅ You're already on the latest version (${currentVersion})!`));
+        return;
+      }
+      
+      console.log(chalk.yellow(`\n📦 Updating from ${currentVersion} to ${latestVersion}...`));
+      
+      // Run npm install -g to update
+      try {
+        execSync(`npm install -g @cosmah/flowspec-cli@latest`, {
+          stdio: 'inherit'
+        });
+        console.log(chalk.green(`\n✅ Successfully updated to v${latestVersion}!`));
+        console.log(chalk.gray(`   Run 'flowspec --version' to verify`));
+      } catch (error: any) {
+        if (error.status === 1) {
+          // npm install failed, might need sudo or different permissions
+          console.log(chalk.yellow(`\n⚠️  Automatic update failed. Please run manually:`));
+          console.log(chalk.cyan(`   npm install -g @cosmah/flowspec-cli@latest`));
+          console.log(chalk.gray(`   Or with sudo: sudo npm install -g @cosmah/flowspec-cli@latest`));
+        } else {
+          throw error;
+        }
+      }
+    } catch (error: any) {
+      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        console.error(chalk.red('❌ Failed to check for updates: Network error'));
+        console.log(chalk.yellow('💡 You can manually update with:'));
+        console.log(chalk.cyan('   npm install -g @cosmah/flowspec-cli@latest'));
+      } else {
+        console.error(chalk.red('❌ Update check failed:'), error.message);
+        console.log(chalk.yellow('💡 You can manually update with:'));
+        console.log(chalk.cyan('   npm install -g @cosmah/flowspec-cli@latest'));
+      }
+      process.exit(1);
+    }
+  });
+
+program
   .command('uninstall')
   .description('Uninstall FlowSpec CLI')
   .action(async () => {

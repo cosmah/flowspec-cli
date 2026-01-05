@@ -10,11 +10,35 @@ export declare class TestGenerator {
     private projectManager;
     private apiUrl;
     private watcher;
+    private cacheManager;
+    private testExecutor;
+    private silentMode;
+    private lastNotification;
     constructor();
+    /**
+     * Initialize cache manager for a project
+     */
+    private initCache;
+    /**
+     * Initialize background test executor for a project
+     */
+    private initTestExecutor;
+    /**
+     * Silent notification (single-line update)
+     */
+    private silentNotify;
+    /**
+     * Clear silent notification
+     */
+    private clearSilentNotification;
     /**
      * Generate tests for specific files
      */
     generateTests(files: string[], options?: GenerateOptions): Promise<void>;
+    /**
+     * Count number of test cases in test code
+     */
+    private countTests;
     /**
      * Start watching for file changes
      */
@@ -47,6 +71,14 @@ export declare class TestGenerator {
      * Ensure test directory exists
      */
     private ensureTestDirectory;
+    /**
+     * Trigger auto-healing for test syntax/import issues (our fault)
+     */
+    private triggerAutoHeal;
+    /**
+     * Show component failure details to user (their fault)
+     */
+    private showComponentFailure;
 }
 export {};
 //# sourceMappingURL=generator.d.ts.map

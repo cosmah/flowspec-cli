@@ -12,6 +12,7 @@ import open from 'open';
 import { glob } from 'glob';
 import { AuthManager } from '../auth/manager';
 import { CodeParser } from '../utils/parser';
+import { TestDebtCounter } from '../utils/testDebt';
 
 interface ProjectConfig {
   projectId: string;
@@ -33,7 +34,8 @@ export class ProjectManager {
 
   constructor() {
     this.authManager = new AuthManager();
-    this.codeParser = new CodeParser();
+    // CodeParser will be initialized with project root when needed
+    this.codeParser = new CodeParser(process.cwd());
     
     // Check for API URL in environment variable first
     // Then check existing project config if available
@@ -168,6 +170,9 @@ export class ProjectManager {
 
       spinner.text = `Processing ${files.length} files...`;
 
+      // Reinitialize parser with project root
+      this.codeParser = new CodeParser(projectRoot);
+
       // Parse files and create chunks
       const fileChunks = [];
       for (const filePath of files) {
@@ -249,6 +254,16 @@ export class ProjectManager {
     console.log(chalk.gray(`   Framework: ${config.framework}`));
     console.log(chalk.gray(`   Project ID: ${config.projectId}`));
 
+    // Show test debt
+    try {
+      const debtCounter = new TestDebtCounter(projectRoot);
+      const debtReport = await debtCounter.calculateTestDebt();
+      console.log(chalk.blue('\n📈 Test Coverage'));
+      console.log(debtCounter.formatReport(debtReport));
+    } catch (error) {
+      // Silently fail - test debt is optional
+    }
+
     // Use API URL from config if available, otherwise use instance default
     const apiUrl = config.apiUrl || this.apiUrl;
 
@@ -268,8 +283,8 @@ export class ProjectManager {
       spinner.stop();
 
       console.log(chalk.green('\n✅ Server Connection'));
-      console.log(chalk.gray(`   Tests Generated: ${project.test_count}`));
-      console.log(chalk.gray(`   Coverage: ${project.coverage_percentage.toFixed(1)}%`));
+      console.log(chalk.gray(`   Tests Generated: ${project.test_count || 0}`));
+      console.log(chalk.gray(`   Coverage: ${project.coverage_percentage?.toFixed(1) || 0}%`));
       console.log(chalk.gray(`   Last Updated: ${new Date(project.updated_at).toLocaleDateString()}`));
 
     } catch (error) {

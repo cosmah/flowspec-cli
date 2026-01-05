@@ -4,6 +4,39 @@
  * FlowSpec CLI - Entry Point
  * Command-line interface for the autonomous test generation system
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -161,6 +194,82 @@ program
     }
     catch (error) {
         console.error(chalk_1.default.red('❌ Failed to get status:'), error);
+        process.exit(1);
+    }
+});
+program
+    .command('coverage')
+    .description('Generate coverage report and open in browser')
+    .option('-o, --output <path>', 'Output path for HTML report')
+    .action(async (options) => {
+    try {
+        const { CoverageVisualizer } = await Promise.resolve().then(() => __importStar(require('./utils/coverageVisualizer')));
+        const visualizer = new CoverageVisualizer(process.cwd());
+        console.log(chalk_1.default.blue('📊 Generating coverage report...'));
+        const reportPath = await visualizer.saveReport(options.output);
+        console.log(chalk_1.default.green(`✅ Coverage report generated: ${reportPath}`));
+        // Open in browser
+        const open = (await Promise.resolve().then(() => __importStar(require('open')))).default;
+        await open(reportPath);
+    }
+    catch (error) {
+        console.error(chalk_1.default.red('❌ Failed to generate coverage report:'), error);
+        process.exit(1);
+    }
+});
+program
+    .command('update')
+    .alias('upgrade')
+    .description('Update FlowSpec CLI to the latest version')
+    .action(async () => {
+    try {
+        const axios = (await Promise.resolve().then(() => __importStar(require('axios')))).default;
+        const { execSync } = await Promise.resolve().then(() => __importStar(require('child_process')));
+        const currentVersion = packageJson.version;
+        console.log(chalk_1.default.blue(`🔍 Checking for updates...`));
+        console.log(chalk_1.default.gray(`   Current version: ${currentVersion}`));
+        // Fetch latest version from npm registry
+        const response = await axios.get('https://registry.npmjs.org/@cosmah/flowspec-cli', {
+            timeout: 5000
+        });
+        const latestVersion = response.data['dist-tags'].latest;
+        console.log(chalk_1.default.gray(`   Latest version: ${latestVersion}`));
+        if (currentVersion === latestVersion) {
+            console.log(chalk_1.default.green(`✅ You're already on the latest version (${currentVersion})!`));
+            return;
+        }
+        console.log(chalk_1.default.yellow(`\n📦 Updating from ${currentVersion} to ${latestVersion}...`));
+        // Run npm install -g to update
+        try {
+            execSync(`npm install -g @cosmah/flowspec-cli@latest`, {
+                stdio: 'inherit'
+            });
+            console.log(chalk_1.default.green(`\n✅ Successfully updated to v${latestVersion}!`));
+            console.log(chalk_1.default.gray(`   Run 'flowspec --version' to verify`));
+        }
+        catch (error) {
+            if (error.status === 1) {
+                // npm install failed, might need sudo or different permissions
+                console.log(chalk_1.default.yellow(`\n⚠️  Automatic update failed. Please run manually:`));
+                console.log(chalk_1.default.cyan(`   npm install -g @cosmah/flowspec-cli@latest`));
+                console.log(chalk_1.default.gray(`   Or with sudo: sudo npm install -g @cosmah/flowspec-cli@latest`));
+            }
+            else {
+                throw error;
+            }
+        }
+    }
+    catch (error) {
+        if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+            console.error(chalk_1.default.red('❌ Failed to check for updates: Network error'));
+            console.log(chalk_1.default.yellow('💡 You can manually update with:'));
+            console.log(chalk_1.default.cyan('   npm install -g @cosmah/flowspec-cli@latest'));
+        }
+        else {
+            console.error(chalk_1.default.red('❌ Update check failed:'), error.message);
+            console.log(chalk_1.default.yellow('💡 You can manually update with:'));
+            console.log(chalk_1.default.cyan('   npm install -g @cosmah/flowspec-cli@latest'));
+        }
         process.exit(1);
     }
 });

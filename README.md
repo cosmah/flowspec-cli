@@ -17,6 +17,12 @@ FlowSpec automatically generates, executes, and maintains comprehensive test sui
 - 🎯 **Smart Context** - Uses codebase embedding for intelligent test generation
 - 🔧 **Auto-Installation** - Automatically installs and configures Vitest dependencies
 - 💰 **Token Optimized** - Smart duplication guards and incremental updates
+- ⚡ **Smart Caching** - Instant test generation for unchanged components (5-second rule)
+- 🔧 **Auto-Healing** - Automatically fixes test syntax and import errors
+- 📈 **Test Debt Counter** - Track untested components and estimate coverage time
+- 🎨 **Design System Awareness** - Detects and leverages UI libraries (Shadcn, MUI, Chakra, Ant Design)
+- 📦 **Data Archetype Detection** - Automatically finds and uses factories, mocks, and test data
+- 🔄 **Background Execution** - Non-blocking test execution with real-time feedback
 
 ## 🚀 Quick Start
 
@@ -60,6 +66,7 @@ flowspec init                # Initialize FlowSpec in project
 flowspec embed               # Embed codebase for AI context
 flowspec status              # Show project status and info
 flowspec dashboard           # Open web dashboard
+flowspec update              # Update CLI to latest version
 ```
 
 ### Test Generation
@@ -269,6 +276,17 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - 📚 **Documentation**: [https://docs.cosmah.me](https://docs.cosmah.me)
 - 🐛 **Issues**: [GitHub Issues](https://github.com/cosmah/flowspec-cli/issues)
 - 💬 **Support**: [support@cosmah.me](mailto:support@cosmah.me)
+
+## 🎉 What's New in v2.0.8
+
+- ⚡ **Smart Caching (Ghost Runner)**: Instant test generation for unchanged components - bypass API calls when code hasn't changed
+- 🔧 **Auto-Healing**: Automatically detects and fixes test syntax errors, import issues, and component mismatches
+- 📈 **Test Debt Counter**: Real-time visibility into untested components with time-to-coverage estimates
+- 🎨 **Design System Awareness**: Automatically detects UI libraries (Shadcn, MUI, Chakra, Ant Design) and tailors test generation
+- 📦 **Data Archetype Detection**: Finds and leverages existing factories, mocks, and test data patterns
+- 🔄 **Background Test Execution**: Non-blocking test runs with silent notifications for seamless workflow
+- 🎯 **Intelligent Failure Analysis**: Classifies test failures as "our fault" (auto-heals) vs "their fault" (shows suggestions)
+- ⚡ **5-Second Rule**: Smart caching ensures sub-5-second response times for cached components
 
 ## 🎉 What's New in v2.0.0
 

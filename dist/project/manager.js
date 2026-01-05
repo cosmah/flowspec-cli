@@ -50,10 +50,12 @@ const open_1 = __importDefault(require("open"));
 const glob_1 = require("glob");
 const manager_1 = require("../auth/manager");
 const parser_1 = require("../utils/parser");
+const testDebt_1 = require("../utils/testDebt");
 class ProjectManager {
     constructor() {
         this.authManager = new manager_1.AuthManager();
-        this.codeParser = new parser_1.CodeParser();
+        // CodeParser will be initialized with project root when needed
+        this.codeParser = new parser_1.CodeParser(process.cwd());
         // Check for API URL in environment variable first
         // Then check existing project config if available
         let apiUrl = process.env.FLOWSPEC_API_URL;
@@ -159,6 +161,8 @@ class ProjectManager {
                 files.push(...matches.map(f => path.join(projectRoot, f)));
             }
             spinner.text = `Processing ${files.length} files...`;
+            // Reinitialize parser with project root
+            this.codeParser = new parser_1.CodeParser(projectRoot);
             // Parse files and create chunks
             const fileChunks = [];
             for (const filePath of files) {
@@ -225,6 +229,16 @@ class ProjectManager {
         console.log(chalk_1.default.gray(`   Name: ${config.name}`));
         console.log(chalk_1.default.gray(`   Framework: ${config.framework}`));
         console.log(chalk_1.default.gray(`   Project ID: ${config.projectId}`));
+        // Show test debt
+        try {
+            const debtCounter = new testDebt_1.TestDebtCounter(projectRoot);
+            const debtReport = await debtCounter.calculateTestDebt();
+            console.log(chalk_1.default.blue('\n📈 Test Coverage'));
+            console.log(debtCounter.formatReport(debtReport));
+        }
+        catch (error) {
+            // Silently fail - test debt is optional
+        }
         // Use API URL from config if available, otherwise use instance default
         const apiUrl = config.apiUrl || this.apiUrl;
         // Check server connection
@@ -237,8 +251,8 @@ class ProjectManager {
             const project = response.data;
             spinner.stop();
             console.log(chalk_1.default.green('\n✅ Server Connection'));
-            console.log(chalk_1.default.gray(`   Tests Generated: ${project.test_count}`));
-            console.log(chalk_1.default.gray(`   Coverage: ${project.coverage_percentage.toFixed(1)}%`));
+            console.log(chalk_1.default.gray(`   Tests Generated: ${project.test_count || 0}`));
+            console.log(chalk_1.default.gray(`   Coverage: ${project.coverage_percentage?.toFixed(1) || 0}%`));
             console.log(chalk_1.default.gray(`   Last Updated: ${new Date(project.updated_at).toLocaleDateString()}`));
         }
         catch (error) {

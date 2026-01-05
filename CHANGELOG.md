@@ -5,6 +5,37 @@ All notable changes to FlowSpec CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.8] - 2026-01-05
+
+### 🚀 Added
+- **Smart Caching (Ghost Runner)**: Instant test generation for unchanged components using AST-based code hashing
+- **Auto-Healing**: Automatically detects and fixes test syntax errors, import mismatches, and component issues
+- **Test Debt Counter**: Real-time visibility into untested components with time-to-coverage estimates
+- **Design System Awareness**: Automatically detects UI libraries (Shadcn, MUI, Chakra, Ant Design) and tailors test generation
+- **Data Archetype Detection**: Finds and leverages existing factories, mocks, and test data patterns in your codebase
+- **Background Test Execution**: Non-blocking test runs with silent notifications for seamless workflow
+- **Intelligent Failure Analysis**: Classifies test failures as "our fault" (auto-heals) vs "their fault" (shows actionable suggestions)
+- **Coverage Visualization**: Generate and view HTML coverage reports with `flowspec coverage`
+- **Update Command**: Easy CLI updates with `flowspec update` - no need to uninstall/reinstall
+
+### 🔧 Improved
+- **5-Second Rule**: Smart caching ensures sub-5-second response times for cached components
+- **Silent Notifications**: Single-line terminal updates for cleaner UX during watch mode
+- **Error Classification**: Enhanced failure analyzer to detect import errors, syntax issues, and component problems
+- **Brain Server Integration**: Full integration of design system and data archetype context into test generation
+- **Healer Response Parsing**: Improved markdown code block extraction for better auto-healing
+
+### 🐛 Fixed
+- **Import Error Detection**: Enhanced failure analyzer to detect "forgot to export" and "mixed up default/named imports" errors
+- **Healer Response Format**: Fixed markdown code block extraction in healer node to properly extract TypeScript code
+- **Test Execution**: Background test execution now properly captures and analyzes test results
+- **Cache Invalidation**: Smart cache invalidation based on component code changes
+
+### 📚 Documentation
+- **Updated README**: Added comprehensive documentation for v2.1.0 features
+- **Feature Highlights**: Documented smart caching, auto-healing, and test debt counter
+- **Usage Examples**: Added examples for new features and commands
+
 ## [2.0.7] - 2025-12-30
 
 ### 🚀 Enhanced

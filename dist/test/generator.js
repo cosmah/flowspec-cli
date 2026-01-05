@@ -49,9 +49,19 @@ const ora_1 = __importDefault(require("ora"));
 const chokidar_1 = __importDefault(require("chokidar"));
 const manager_1 = require("../auth/manager");
 const manager_2 = require("../project/manager");
+const cache_1 = require("../utils/cache");
+const testDebt_1 = require("../utils/testDebt");
+const testExecutor_1 = require("../utils/testExecutor");
+const parser_1 = require("../utils/parser");
+const testFailureAnalyzer_1 = require("../utils/testFailureAnalyzer");
+const errorHandler_1 = require("../utils/errorHandler");
 class TestGenerator {
     constructor() {
         this.watcher = null;
+        this.cacheManager = null;
+        this.testExecutor = null;
+        this.silentMode = false;
+        this.lastNotification = '';
         this.authManager = new manager_1.AuthManager();
         this.projectManager = new manager_2.ProjectManager();
         // Check for API URL in environment variable first
@@ -75,6 +85,47 @@ class TestGenerator {
         this.apiUrl = apiUrl || 'https://api.cosmah.me';
     }
     /**
+     * Initialize cache manager for a project
+     */
+    initCache(projectRoot) {
+        if (!this.cacheManager) {
+            this.cacheManager = new cache_1.CacheManager(projectRoot);
+        }
+        return this.cacheManager;
+    }
+    /**
+     * Initialize background test executor for a project
+     */
+    initTestExecutor(projectRoot) {
+        if (!this.testExecutor) {
+            this.testExecutor = new testExecutor_1.BackgroundTestExecutor(projectRoot);
+        }
+        return this.testExecutor;
+    }
+    /**
+     * Silent notification (single-line update)
+     */
+    silentNotify(message) {
+        if (!this.silentMode) {
+            return;
+        }
+        // Clear previous line and write new one
+        if (this.lastNotification) {
+            process.stdout.write('\r' + ' '.repeat(this.lastNotification.length) + '\r');
+        }
+        process.stdout.write(message);
+        this.lastNotification = message;
+    }
+    /**
+     * Clear silent notification
+     */
+    clearSilentNotification() {
+        if (this.lastNotification) {
+            process.stdout.write('\r' + ' '.repeat(this.lastNotification.length) + '\r');
+            this.lastNotification = '';
+        }
+    }
+    /**
      * Generate tests for specific files
      */
     async generateTests(files, options = {}) {
@@ -87,91 +138,220 @@ class TestGenerator {
         if (config.apiUrl) {
             this.apiUrl = config.apiUrl;
         }
+        // Initialize cache and test executor
+        const cache = this.initCache(projectRoot);
+        const testExecutor = this.initTestExecutor(projectRoot);
         await this.authManager.ensureAuthenticated();
-        console.log(chalk_1.default.blue(`\nGenerating tests for ${files.length} files...\n`));
+        if (!this.silentMode) {
+            console.log(chalk_1.default.blue(`\nGenerating tests for ${files.length} files...\n`));
+        }
         const results = [];
+        const startTime = Date.now();
         for (const file of files) {
             const filePath = path.resolve(projectRoot, file);
             if (!fs.existsSync(filePath)) {
-                console.log(chalk_1.default.red(`File not found: ${file}`));
+                if (!this.silentMode) {
+                    console.log(chalk_1.default.red(`File not found: ${file}`));
+                }
                 continue;
             }
             if (!this.isTestableFile(filePath)) {
-                console.log(chalk_1.default.yellow(`Skipping non-component file: ${file}`));
+                if (!this.silentMode) {
+                    console.log(chalk_1.default.yellow(`Skipping non-component file: ${file}`));
+                }
                 continue;
+            }
+            // Check cache first
+            const componentCode = fs.readFileSync(filePath, 'utf-8');
+            const relativePath = path.relative(projectRoot, filePath);
+            const cached = cache.getCached(filePath, componentCode);
+            // Validate cached test still exists and is valid
+            if (cached) {
+                const cachedTestFilePath = this.getTestFilePath(filePath);
+                // Check if test file still exists
+                if (!fs.existsSync(cachedTestFilePath)) {
+                    // Test file was deleted - invalidate cache
+                    cache.invalidate(filePath);
+                }
+                else {
+                    // Use cached test code
+                    this.ensureTestDirectory(cachedTestFilePath);
+                    fs.writeFileSync(cachedTestFilePath, cached.testCode, 'utf-8');
+                    // Execute test in background to get current status
+                    const testResult = await testExecutor.executeTest(cachedTestFilePath);
+                    const elapsed = (testResult.duration / 1000).toFixed(1);
+                    if (this.silentMode) {
+                        const testCount = testResult.testCount || this.countTests(cached.testCode);
+                        this.silentNotify(`✨ ${relativePath} updated. Tests: ${testCount} ${testResult.passed ? 'passing' : 'failing'} (${elapsed}s)`);
+                    }
+                    else {
+                        const testCount = testResult.testCount || this.countTests(cached.testCode);
+                        console.log(chalk_1.default.green(`✅ ${relativePath} (cached) - ${testCount} tests ${testResult.passed ? 'passing' : 'failing'}`));
+                    }
+                    results.push({
+                        file,
+                        result: {
+                            success: true,
+                            test_code: cached.testCode,
+                            is_passing: testResult.passed,
+                            attempts: cached.attempts,
+                            error_log: '',
+                            message: 'Loaded from cache'
+                        }
+                    });
+                    continue;
+                }
             }
             // Check if test file already exists
             const testFilePath = this.getTestFilePath(filePath);
             const testExists = fs.existsSync(testFilePath);
             if (testExists) {
-                console.log(chalk_1.default.gray(`Test exists: ${path.relative(projectRoot, testFilePath)} - checking for updates...`));
                 // Check if component was modified after test file
                 const componentStat = fs.statSync(filePath);
                 const testStat = fs.statSync(testFilePath);
                 if (componentStat.mtime <= testStat.mtime) {
-                    console.log(chalk_1.default.gray(`Skipping ${file} - test is up to date`));
+                    if (!this.silentMode) {
+                        console.log(chalk_1.default.gray(`Skipping ${file} - test is up to date`));
+                    }
                     continue;
                 }
             }
-            const spinner = (0, ora_1.default)(`${testExists ? 'Updating' : 'Creating'} test for ${file}...`).start();
+            const spinner = this.silentMode ? null : (0, ora_1.default)(`${testExists ? 'Updating' : 'Creating'} test for ${file}...`).start();
             try {
-                const componentCode = fs.readFileSync(filePath, 'utf-8');
-                const relativePath = path.relative(projectRoot, filePath);
                 // For existing tests, include current test content for incremental updates
                 let existingTestCode = '';
                 if (testExists) {
                     existingTestCode = fs.readFileSync(testFilePath, 'utf-8');
                 }
-                const result = await this.generateTestForComponent(config.projectId, componentCode, relativePath, existingTestCode);
+                const result = await this.generateTestForComponent(config.projectId, componentCode, relativePath, existingTestCode, projectRoot);
                 // Write test file if test_code exists and has content, regardless of passing status
-                // This allows tests to be created even if they need fixes
                 if (result.test_code && result.test_code.trim().length > 0) {
                     try {
                         // Save test file
                         this.ensureTestDirectory(testFilePath);
                         fs.writeFileSync(testFilePath, result.test_code, 'utf-8');
-                        // Execute test locally to verify it works
-                        const testPassed = await this.executeTestLocally(testFilePath, projectRoot);
-                        spinner.succeed(`${testExists ? 'Updated' : 'Generated'} test for ${file}`);
-                        console.log(chalk_1.default.gray(`   Test file: ${path.relative(projectRoot, testFilePath)}`));
-                        console.log(chalk_1.default.gray(`   Status: ${testPassed ? 'Passing' : 'Generated (needs fixes)'}`));
-                        console.log(chalk_1.default.gray(`   Attempts: ${result.attempts}`));
-                        // Mark as successful since file was written
+                        // Cache the result (we'll update is_passing after test execution)
+                        cache.setCache(filePath, componentCode, result.test_code, result.is_passing, result.attempts);
+                        // Execute test in background (non-blocking)
+                        const testExecutionPromise = testExecutor.executeTest(testFilePath);
+                        // Don't wait for test execution - update UI immediately
+                        if (this.silentMode) {
+                            const testCount = this.countTests(result.test_code);
+                            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                            this.silentNotify(`✨ ${relativePath} updated. Tests: ${testCount} generated (${elapsed}s)`);
+                            // Update notification when test completes
+                            testExecutionPromise.then(testResult => {
+                                const finalElapsed = (testResult.duration / 1000).toFixed(1);
+                                const finalTestCount = testResult.testCount || testCount;
+                                if (testResult.passed) {
+                                    this.silentNotify(`✨ ${relativePath} updated. Tests: ${finalTestCount} passing (${finalElapsed}s)`);
+                                    cache.setCache(filePath, componentCode, result.test_code, true, result.attempts);
+                                }
+                                else {
+                                    // Analyze failure - is it our fault or theirs?
+                                    const analyzer = new testFailureAnalyzer_1.TestFailureAnalyzer();
+                                    const analysis = analyzer.analyzeFailure(testResult.error || '', '');
+                                    if (analysis.isOurFault) {
+                                        // Our fault - auto-heal silently
+                                        this.silentNotify(`🔧 ${relativePath} - Auto-healing test syntax...`);
+                                        this.triggerAutoHeal(config.projectId, componentCode, relativePath, result.test_code, testResult.error || '');
+                                    }
+                                    else {
+                                        // Their fault - show to user
+                                        this.silentNotify(`⚠️  ${relativePath} - ${finalTestCount} tests failing (component issue)`);
+                                        this.showComponentFailure(relativePath, analysis, finalTestCount);
+                                    }
+                                }
+                            }).catch(() => {
+                                // Silently handle errors
+                            });
+                        }
+                        else {
+                            spinner?.succeed(`${testExists ? 'Updated' : 'Generated'} test for ${file}`);
+                            console.log(chalk_1.default.gray(`   Test file: ${path.relative(projectRoot, testFilePath)}`));
+                            console.log(chalk_1.default.gray(`   Status: Generated (running in background...)`));
+                            console.log(chalk_1.default.gray(`   Attempts: ${result.attempts}`));
+                            // Update status when test completes
+                            testExecutionPromise.then(testResult => {
+                                const testCount = testResult.testCount || this.countTests(result.test_code);
+                                if (testResult.passed) {
+                                    console.log(chalk_1.default.green(`   ✅ Test execution complete: ${testCount} tests passing`));
+                                    cache.setCache(filePath, componentCode, result.test_code, true, result.attempts);
+                                }
+                                else {
+                                    // Analyze failure
+                                    const analyzer = new testFailureAnalyzer_1.TestFailureAnalyzer();
+                                    const analysis = analyzer.analyzeFailure(testResult.error || '', '');
+                                    if (analysis.isOurFault) {
+                                        // Our fault - auto-heal
+                                        console.log(chalk_1.default.yellow(`   🔧 Auto-healing test syntax/import issues...`));
+                                        this.triggerAutoHeal(config.projectId, componentCode, relativePath, result.test_code, testResult.error || '');
+                                    }
+                                    else {
+                                        // Their fault - show details
+                                        console.log(chalk_1.default.red(`   ❌ Test execution complete: ${testCount} tests failing (component issue)`));
+                                        this.showComponentFailure(relativePath, analysis, testCount);
+                                    }
+                                }
+                            }).catch(() => {
+                                // Silently handle errors
+                            });
+                        }
                         result.success = true;
                     }
                     catch (writeError) {
-                        spinner.fail(`Failed to write test file for ${file}`);
-                        console.log(chalk_1.default.red(`   Write error: ${writeError.message}`));
+                        spinner?.fail(`Failed to write test file for ${file}`);
+                        if (!this.silentMode) {
+                            console.log(chalk_1.default.red(`   Write error: ${writeError.message}`));
+                        }
                         result.success = false;
                         result.message = `File write failed: ${writeError.message}`;
                     }
                 }
                 else {
-                    spinner.fail(`Failed to ${testExists ? 'update' : 'generate'} test for ${file}`);
-                    console.log(chalk_1.default.red(`   Error: ${result.message || 'No test code generated'}`));
-                    if (result.error_log) {
-                        console.log(chalk_1.default.gray(`   Details: ${result.error_log}`));
+                    spinner?.fail(`Failed to ${testExists ? 'update' : 'generate'} test for ${file}`);
+                    if (!this.silentMode) {
+                        console.log(chalk_1.default.red(`   Error: ${result.message || 'No test code generated'}`));
+                        if (result.error_log) {
+                            console.log(chalk_1.default.gray(`   Details: ${result.error_log}`));
+                        }
                     }
                 }
                 results.push({ file, result });
             }
             catch (error) {
-                spinner.fail(`Error processing ${file}`);
-                console.log(chalk_1.default.red(`   ${error.message}`));
+                spinner?.fail(`Error processing ${file}`);
+                if (!this.silentMode) {
+                    console.log(chalk_1.default.red(`   ${error.message}`));
+                }
             }
         }
-        // Summary
-        const successful = results.filter(r => r.result.success).length;
-        const failed = results.length - successful;
-        console.log(chalk_1.default.blue('\nGeneration Summary:'));
-        console.log(chalk_1.default.green(`   Successful: ${successful}`));
-        if (failed > 0) {
-            console.log(chalk_1.default.red(`   Failed: ${failed}`));
+        if (this.silentMode) {
+            this.clearSilentNotification();
+        }
+        else {
+            // Summary
+            const successful = results.filter(r => r.result.success).length;
+            const failed = results.length - successful;
+            console.log(chalk_1.default.blue('\nGeneration Summary:'));
+            console.log(chalk_1.default.green(`   Successful: ${successful}`));
+            if (failed > 0) {
+                console.log(chalk_1.default.red(`   Failed: ${failed}`));
+            }
         }
         if (options.watch) {
-            console.log(chalk_1.default.blue('\nStarting watch mode...'));
+            if (!this.silentMode) {
+                console.log(chalk_1.default.blue('\nStarting watch mode...'));
+            }
             await this.startWatching(projectRoot);
         }
+    }
+    /**
+     * Count number of test cases in test code
+     */
+    countTests(testCode) {
+        const itMatches = testCode.match(/\b(it|test)\s*\(/g);
+        return itMatches ? itMatches.length : 0;
     }
     /**
      * Start watching for file changes
@@ -185,6 +365,11 @@ class TestGenerator {
         if (config.apiUrl) {
             this.apiUrl = config.apiUrl;
         }
+        // Enable silent mode for watch
+        this.silentMode = true;
+        // Initialize cache and test executor
+        this.initCache(projectRoot);
+        this.initTestExecutor(projectRoot);
         if (this.watcher) {
             console.log(chalk_1.default.yellow('⚠️  Watcher is already running'));
             return;
@@ -193,6 +378,16 @@ class TestGenerator {
         console.log(chalk_1.default.gray(`📁 Project: ${config.name}`));
         console.log(chalk_1.default.gray(`🔗 API: ${this.apiUrl}`));
         console.log(chalk_1.default.gray(`📂 Root: ${projectRoot}\n`));
+        // Show test debt
+        try {
+            const debtCounter = new testDebt_1.TestDebtCounter(projectRoot);
+            const debtReport = await debtCounter.calculateTestDebt();
+            console.log(chalk_1.default.yellow(debtCounter.formatReport(debtReport)));
+            console.log();
+        }
+        catch (error) {
+            // Silently fail - test debt is optional
+        }
         // Auto-embed codebase if not done yet
         console.log(chalk_1.default.blue('🧠 Ensuring codebase is embedded for AI context...'));
         try {
@@ -236,40 +431,27 @@ class TestGenerator {
         this.watcher
             .on('add', (filePath) => {
             scannedFiles++;
-            console.log(chalk_1.default.gray(`🔍 Scanning: ${filePath}`));
             if (!initialScanComplete) {
-                // Collect existing files during initial scan
+                // Collect existing files during initial scan (silent)
                 if (this.isTestableFile(path.resolve(projectRoot, filePath))) {
                     existingFiles.push(filePath);
                     testableFiles++;
-                    console.log(chalk_1.default.green(`   ✅ Testable component found`));
-                }
-                else {
-                    console.log(chalk_1.default.gray(`   ⏭️  Skipped (not a testable component)`));
                 }
             }
             else {
                 // Handle new files after initial scan
                 if (this.isTestableFile(path.resolve(projectRoot, filePath))) {
-                    console.log(chalk_1.default.green(`📝 New component detected: ${filePath}`));
                     this.handleFileChange('added', filePath, projectRoot);
-                }
-                else {
-                    console.log(chalk_1.default.gray(`📄 New file (not testable): ${filePath}`));
                 }
             }
         })
             .on('change', (filePath) => {
             if (this.isTestableFile(path.resolve(projectRoot, filePath))) {
-                console.log(chalk_1.default.yellow(`📝 Component modified: ${filePath}`));
                 this.handleFileChange('changed', filePath, projectRoot);
-            }
-            else {
-                console.log(chalk_1.default.gray(`📄 File modified (not testable): ${filePath}`));
             }
         })
             .on('unlink', (filePath) => {
-            console.log(chalk_1.default.red(`🗑️  File deleted: ${filePath}`));
+            // Silently handle deletions
             // TODO: Consider deleting corresponding test file
         })
             .on('ready', async () => {
@@ -283,14 +465,14 @@ class TestGenerator {
                 // Generate tests for existing files
                 for (let i = 0; i < existingFiles.length; i++) {
                     const filePath = existingFiles[i];
-                    console.log(chalk_1.default.blue(`[${i + 1}/${existingFiles.length}] Processing: ${filePath}`));
                     try {
                         await this.handleFileChange('existing', filePath, projectRoot);
                     }
                     catch (error) {
-                        console.error(chalk_1.default.red(`❌ Error processing ${filePath}:`), error);
+                        // Silently continue on error
                     }
                 }
+                this.clearSilentNotification();
                 console.log(chalk_1.default.green(`\n✅ Initial sync complete! Processed ${existingFiles.length} existing files`));
             }
             else {
@@ -305,6 +487,10 @@ class TestGenerator {
         // Handle graceful shutdown
         process.on('SIGINT', async () => {
             console.log(chalk_1.default.blue('\n🛑 Stopping FlowSpec watcher...'));
+            // Wait for background test executions to complete
+            if (this.testExecutor) {
+                await this.testExecutor.waitForAll();
+            }
             await this.stopWatching();
             process.exit(0);
         });
@@ -329,8 +515,6 @@ class TestGenerator {
         if (!this.isTestableFile(fullPath)) {
             return;
         }
-        const eventLabel = event === 'existing' ? 'found' : event;
-        console.log(chalk_1.default.blue(`📝 File ${eventLabel}: ${filePath}`));
         // Check if test already exists and is up to date
         const testFilePath = this.getTestFilePath(fullPath);
         const testExists = fs.existsSync(testFilePath);
@@ -338,38 +522,28 @@ class TestGenerator {
             const componentStat = fs.statSync(fullPath);
             const testStat = fs.statSync(testFilePath);
             if (componentStat.mtime <= testStat.mtime) {
-                console.log(chalk_1.default.gray(`   ⏭️  Test is up to date, skipping`));
+                // Test is up to date, skip silently
                 return;
             }
-            console.log(chalk_1.default.yellow(`   🔄 Test needs update (component is newer)`));
-        }
-        else if (testExists) {
-            console.log(chalk_1.default.yellow(`   🔄 Updating existing test`));
-        }
-        else {
-            console.log(chalk_1.default.green(`   ✨ Creating new test`));
         }
         // Debounce rapid changes (but not for existing files during initial scan)
         const delay = event === 'existing' ? 0 : 1000;
-        if (delay > 0) {
-            console.log(chalk_1.default.gray(`   ⏱️  Debouncing for ${delay}ms...`));
-        }
         setTimeout(async () => {
             try {
-                console.log(chalk_1.default.blue(`   🚀 Starting test generation...`));
-                await this.generateTests([filePath]);
-                console.log(chalk_1.default.green(`   ✅ Test generation complete\n`));
+                await this.generateTests([filePath], {});
             }
             catch (error) {
-                console.error(chalk_1.default.red(`   ❌ Error processing ${filePath}:`), error);
-                console.log(); // Add spacing after error
+                // Silently continue on error in watch mode
+                if (!this.silentMode) {
+                    console.error(chalk_1.default.red(`   ❌ Error processing ${filePath}:`), error);
+                }
             }
         }, delay);
     }
     /**
      * Generate test for a single component
      */
-    async generateTestForComponent(projectId, componentCode, componentPath, existingTestCode) {
+    async generateTestForComponent(projectId, componentCode, componentPath, existingTestCode, projectRoot) {
         try {
             const requestBody = {
                 project_id: projectId,
@@ -382,41 +556,61 @@ class TestGenerator {
                 requestBody.existing_test_code = existingTestCode;
                 requestBody.update_mode = true;
             }
-            console.log(chalk_1.default.gray(`   📡 Sending request to ${this.apiUrl}/generate-test`));
-            console.log(chalk_1.default.gray(`   📄 Component: ${componentPath} (${componentCode.length} chars)`));
+            // Add design system and data archetype context if available
+            if (projectRoot) {
+                try {
+                    const parser = new parser_1.CodeParser(projectRoot);
+                    const archetypes = await parser.detectDataArchetypes();
+                    if (archetypes.designSystem) {
+                        requestBody.design_system = archetypes.designSystem;
+                    }
+                    if (archetypes.factories.length > 0) {
+                        requestBody.factories = archetypes.factories.map(f => path.relative(projectRoot, f));
+                    }
+                    if (archetypes.mocks.length > 0) {
+                        requestBody.mocks = archetypes.mocks.map(m => path.relative(projectRoot, m));
+                    }
+                }
+                catch (error) {
+                    // Silently fail - archetype detection is optional
+                }
+            }
+            if (!this.silentMode) {
+                console.log(chalk_1.default.gray(`   📡 Sending request to ${this.apiUrl}/generate-test`));
+                console.log(chalk_1.default.gray(`   📄 Component: ${componentPath} (${componentCode.length} chars)`));
+            }
             const response = await axios_1.default.post(`${this.apiUrl}/generate-test`, requestBody, {
                 headers: this.authManager.getAuthHeader(),
                 timeout: 120000 // 2 minutes timeout for AI generation
             });
-            console.log(chalk_1.default.gray(`   ✅ API Response received`));
-            // Debug: Log response details
-            if (!response.data.test_code || response.data.test_code.trim().length === 0) {
-                console.log(chalk_1.default.yellow(`   ⚠️  Warning: Response has no test_code`));
-                console.log(chalk_1.default.gray(`   Response success: ${response.data.success}`));
-                console.log(chalk_1.default.gray(`   Response is_passing: ${response.data.is_passing}`));
-                console.log(chalk_1.default.gray(`   Response message: ${response.data.message}`));
-                if (response.data.error_log) {
-                    console.log(chalk_1.default.gray(`   Error log: ${response.data.error_log.substring(0, 200)}`));
+            if (!this.silentMode) {
+                console.log(chalk_1.default.gray(`   ✅ API Response received`));
+                // Debug: Log response details
+                if (!response.data.test_code || response.data.test_code.trim().length === 0) {
+                    console.log(chalk_1.default.yellow(`   ⚠️  Warning: Response has no test_code`));
+                    console.log(chalk_1.default.gray(`   Response success: ${response.data.success}`));
+                    console.log(chalk_1.default.gray(`   Response is_passing: ${response.data.is_passing}`));
+                    console.log(chalk_1.default.gray(`   Response message: ${response.data.message}`));
+                    if (response.data.error_log) {
+                        console.log(chalk_1.default.gray(`   Error log: ${response.data.error_log.substring(0, 200)}`));
+                    }
                 }
             }
             return response.data;
         }
         catch (error) {
-            console.log(chalk_1.default.red(`   ❌ API Error: ${error.message}`));
-            if (error.response?.status) {
-                console.log(chalk_1.default.red(`   📡 HTTP Status: ${error.response.status}`));
-            }
-            if (error.response?.data) {
-                console.log(chalk_1.default.red(`   📄 Response: ${JSON.stringify(error.response.data, null, 2)}`));
-            }
+            // Use centralized error handling
+            errorHandler_1.ErrorHandler.handleBrainServerError(error, () => {
+                if (!this.silentMode) {
+                    console.log(chalk_1.default.yellow('   ⚠️  Falling back to cached test if available...'));
+                }
+            });
+            // Re-throw with context
             if (error.response?.data?.detail) {
                 throw new Error(error.response.data.detail);
             }
-            else if (error.code === 'ECONNREFUSED') {
-                throw new Error('Cannot connect to FlowSpec server. Make sure it\'s running.');
-            }
             else {
-                throw new Error(`Test generation failed: ${error.message}`);
+                throw error;
             }
         }
     }
@@ -458,7 +652,6 @@ class TestGenerator {
      */
     async executeTestLocally(testFilePath, projectRoot) {
         try {
-            console.log(chalk_1.default.gray(`   🧪 Running test locally...`));
             const { execSync } = require('child_process');
             const relativePath = path.relative(projectRoot, testFilePath);
             // Try to run the specific test file
@@ -467,11 +660,9 @@ class TestGenerator {
                 stdio: 'pipe',
                 timeout: 30000 // 30 second timeout
             });
-            console.log(chalk_1.default.green(`   ✅ Test passed locally`));
             return true;
         }
         catch (error) {
-            console.log(chalk_1.default.yellow(`   ⚠️  Test generated but may need adjustment`));
             return false;
         }
     }
@@ -483,6 +674,103 @@ class TestGenerator {
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
+    }
+    /**
+     * Trigger auto-healing for test syntax/import issues (our fault)
+     */
+    async triggerAutoHeal(projectId, componentCode, componentPath, existingTestCode, errorLog) {
+        try {
+            // Check server health first
+            const isHealthy = await errorHandler_1.ErrorHandler.checkBrainServerHealth(this.apiUrl);
+            if (!isHealthy) {
+                if (!this.silentMode) {
+                    console.log(chalk_1.default.yellow(`   ⚠️  Cannot auto-heal: server unavailable`));
+                }
+                return;
+            }
+            // Call brain server with error log to trigger healer node
+            const response = await errorHandler_1.ErrorHandler.withRetry(() => axios_1.default.post(`${this.apiUrl}/generate-test`, {
+                project_id: projectId,
+                component_code: componentCode,
+                component_path: componentPath,
+                existing_test_code: existingTestCode,
+                update_mode: true,
+                collection_name: `project_${projectId}`,
+                error_log: errorLog,
+                auto_heal: true
+            }, {
+                headers: this.authManager.getAuthHeader(),
+                timeout: 120000
+            }), {
+                maxRetries: 2, // Fewer retries for auto-heal
+                retryDelay: 1000
+            }, 'Auto-healing');
+            if (response.data.test_code && response.data.test_code.trim()) {
+                // Write healed test
+                const projectRoot = process.cwd();
+                const testFilePath = this.getTestFilePath(path.resolve(projectRoot, componentPath));
+                this.ensureTestDirectory(testFilePath);
+                fs.writeFileSync(testFilePath, response.data.test_code, 'utf-8');
+                // Re-run test to verify healing worked
+                if (this.testExecutor) {
+                    const testResult = await this.testExecutor.executeTest(testFilePath);
+                    if (testResult.passed) {
+                        if (this.silentMode) {
+                            this.silentNotify(`✅ ${componentPath} - Auto-healed and passing`);
+                        }
+                        else {
+                            console.log(chalk_1.default.green(`   ✅ Auto-healed successfully - tests now passing`));
+                        }
+                        // Update cache with healed test
+                        const cache = this.cacheManager;
+                        if (cache) {
+                            cache.setCache(testFilePath, componentCode, response.data.test_code, true, response.data.attempts || 1);
+                        }
+                    }
+                    else {
+                        // Healing didn't work - might need another attempt
+                        if (!this.silentMode) {
+                            console.log(chalk_1.default.yellow(`   ⚠️  Auto-healing attempted but test still failing`));
+                            console.log(chalk_1.default.gray(`   You may need to fix the test manually`));
+                        }
+                    }
+                }
+            }
+            else {
+                if (!this.silentMode) {
+                    console.log(chalk_1.default.yellow(`   ⚠️  Auto-healing did not return test code`));
+                }
+            }
+        }
+        catch (error) {
+            // Log error but don't crash
+            if (!this.silentMode) {
+                errorHandler_1.ErrorHandler.handleBrainServerError(error);
+                console.log(chalk_1.default.yellow(`   ⚠️  Auto-healing failed - test may need manual fixes`));
+            }
+        }
+    }
+    /**
+     * Show component failure details to user (their fault)
+     */
+    showComponentFailure(componentPath, analysis, testCount) {
+        console.log(chalk_1.default.red(`\n   ❌ ${componentPath} - ${testCount} test(s) failing`));
+        if (analysis.affectedTests.length > 0) {
+            console.log(chalk_1.default.yellow(`   Failed tests:`));
+            analysis.affectedTests.forEach((testName) => {
+                console.log(chalk_1.default.gray(`     • ${testName}`));
+            });
+        }
+        if (analysis.errorMessage) {
+            console.log(chalk_1.default.yellow(`   Error: ${analysis.errorMessage}`));
+        }
+        if (analysis.suggestions.length > 0) {
+            console.log(chalk_1.default.blue(`   💡 Suggestions:`));
+            analysis.suggestions.forEach((suggestion) => {
+                console.log(chalk_1.default.gray(`     • ${suggestion}`));
+            });
+        }
+        console.log(); // Add spacing
     }
 }
 exports.TestGenerator = TestGenerator;
