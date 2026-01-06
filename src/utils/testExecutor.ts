@@ -24,6 +24,7 @@ interface PendingExecution {
 export class BackgroundTestExecutor {
   private projectRoot: string;
   private pendingExecutions: Map<string, PendingExecution> = new Map();
+  private activeProcesses: Map<string, { process: ChildProcess; timeout: NodeJS.Timeout }> = new Map();
   private maxConcurrent: number = 3; // Max concurrent test executions
   private activeExecutions: Set<string> = new Set();
 
@@ -95,8 +96,51 @@ export class BackgroundTestExecutor {
       stderr += data.toString();
     });
 
+    // Timeout after 30 seconds
+    const timeout = setTimeout(() => {
+      if (vitestProcess.killed === false) {
+        vitestProcess.kill('SIGTERM');
+        
+        // Force kill after 5 seconds if still running
+        setTimeout(() => {
+          if (vitestProcess.killed === false) {
+            vitestProcess.kill('SIGKILL');
+          }
+        }, 5000);
+
+        const activeProcess = this.activeProcesses.get(testFilePath);
+        if (activeProcess) {
+          clearTimeout(activeProcess.timeout);
+          this.activeProcesses.delete(testFilePath);
+        }
+        
+        this.activeExecutions.delete(testFilePath);
+        this.pendingExecutions.delete(testFilePath);
+
+        if (pending) {
+          pending.resolve({
+            passed: false,
+            duration: 30000,
+            testCount: 0,
+            error: 'Test execution timed out'
+          });
+        }
+      }
+    }, 30000);
+
+    // Track the process for cleanup
+    this.activeProcesses.set(testFilePath, { process: vitestProcess, timeout });
+
     vitestProcess.on('close', (code) => {
       const duration = Date.now() - startTime;
+      
+      // Clean up tracking
+      const activeProcess = this.activeProcesses.get(testFilePath);
+      if (activeProcess) {
+        clearTimeout(activeProcess.timeout);
+        this.activeProcesses.delete(testFilePath);
+      }
+      
       this.activeExecutions.delete(testFilePath);
       this.pendingExecutions.delete(testFilePath);
 
@@ -126,6 +170,14 @@ export class BackgroundTestExecutor {
 
     vitestProcess.on('error', (error) => {
       const duration = Date.now() - startTime;
+      
+      // Clean up tracking
+      const activeProcess = this.activeProcesses.get(testFilePath);
+      if (activeProcess) {
+        clearTimeout(activeProcess.timeout);
+        this.activeProcesses.delete(testFilePath);
+      }
+      
       this.activeExecutions.delete(testFilePath);
       this.pendingExecutions.delete(testFilePath);
 
@@ -133,24 +185,6 @@ export class BackgroundTestExecutor {
         pending.reject(error);
       }
     });
-
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      if (vitestProcess.killed === false) {
-        vitestProcess.kill();
-        this.activeExecutions.delete(testFilePath);
-        this.pendingExecutions.delete(testFilePath);
-
-        if (pending) {
-          pending.resolve({
-            passed: false,
-            duration: 30000,
-            testCount: 0,
-            error: 'Test execution timed out'
-          });
-        }
-      }
-    }, 30000);
   }
 
   /**
@@ -185,12 +219,30 @@ export class BackgroundTestExecutor {
   }
 
   /**
-   * Cancel all pending executions
+   * Cancel all pending executions and kill all active processes
    */
   cancelAll(): void {
+    // Kill all active processes
+    for (const [testFilePath, { process, timeout }] of this.activeProcesses.entries()) {
+      clearTimeout(timeout);
+      if (!process.killed) {
+        process.kill('SIGTERM');
+        // Force kill after 2 seconds
+        setTimeout(() => {
+          if (!process.killed) {
+            process.kill('SIGKILL');
+          }
+        }, 2000);
+      }
+    }
+    
+    // Reject all pending executions
     for (const [testFilePath, pending] of this.pendingExecutions.entries()) {
       pending.reject(new Error('Execution cancelled'));
     }
+    
+    // Clear all tracking
+    this.activeProcesses.clear();
     this.pendingExecutions.clear();
     this.activeExecutions.clear();
   }

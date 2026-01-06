@@ -90,7 +90,8 @@ export class ProjectManager {
           package_json: packageJson
         },
         {
-          headers: this.authManager.getAuthHeader()
+          headers: this.authManager.getAuthHeader(),
+          timeout: 30000 // 30 second timeout
         }
       );
 

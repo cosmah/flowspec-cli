@@ -454,7 +454,14 @@ export class TestGenerator {
         '.flowspec/**'
       ],
       persistent: true,
-      ignoreInitial: false // Changed to false to process existing files
+      ignoreInitial: false, // Changed to false to process existing files
+      awaitWriteFinish: {
+        stabilityThreshold: 300, // Wait 300ms after file stops changing
+        pollInterval: 100 // Check every 100ms
+      },
+      usePolling: false, // Use native events (faster, but can enable polling if needed)
+      interval: 1000, // Polling interval if usePolling is true
+      binaryInterval: 1000
     });
 
     let initialScanComplete = false;
@@ -524,17 +531,25 @@ export class TestGenerator {
       });
 
     // Handle graceful shutdown
-    process.on('SIGINT', async () => {
-      console.log(chalk.blue('\n🛑 Stopping FlowSpec watcher...'));
+    const shutdown = async (signal: string) => {
+      console.log(chalk.blue(`\n🛑 Stopping FlowSpec watcher (${signal})...`));
       
-      // Wait for background test executions to complete
+      // Cancel all pending test executions
       if (this.testExecutor) {
+        this.testExecutor.cancelAll();
+        // Wait briefly for any ongoing executions
         await this.testExecutor.waitForAll();
       }
       
+      // Stop the file watcher
       await this.stopWatching();
       process.exit(0);
-    });
+    };
+
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGUSR1', () => shutdown('SIGUSR1'));
+    process.on('SIGUSR2', () => shutdown('SIGUSR2'));
 
     // Keep process alive
     process.stdin.resume();
@@ -576,7 +591,8 @@ export class TestGenerator {
     }
 
     // Debounce rapid changes (but not for existing files during initial scan)
-    const delay = event === 'existing' ? 0 : 1000;
+    // Reduced delay since awaitWriteFinish already handles file stability
+    const delay = event === 'existing' ? 0 : 200;
     
     setTimeout(async () => {
       try {
@@ -630,6 +646,10 @@ export class TestGenerator {
           
           if (archetypes.mocks.length > 0) {
             requestBody.mocks = archetypes.mocks.map(m => path.relative(projectRoot, m));
+          }
+          
+          if (archetypes.testData.length > 0) {
+            requestBody.testData = archetypes.testData.map(t => path.relative(projectRoot, t));
           }
         } catch (error) {
           // Silently fail - archetype detection is optional
@@ -685,30 +705,84 @@ export class TestGenerator {
   }
 
   /**
-   * Check if file is testable (React component)
+   * Check if file is testable (React component, hook, or utility)
    */
   private isTestableFile(filePath: string): boolean {
-    // Must be TypeScript/JavaScript React file
-    if (!/\.(tsx|jsx)$/.test(filePath)) {
+    // Must be TypeScript/JavaScript file
+    if (!/\.(tsx|jsx|ts|js)$/.test(filePath)) {
       return false;
     }
 
     const fileName = path.basename(filePath, path.extname(filePath));
+    const ext = path.extname(filePath);
     
     // Skip test files
-    if (/\.(test|spec)\.(tsx|jsx)$/.test(filePath)) {
+    if (/\.(test|spec)\.(tsx|jsx|ts|js)$/.test(filePath)) {
       return false;
     }
 
-    // Next.js App Router special files (always testable)
-    const nextJsFiles = ['page', 'layout', 'loading', 'error', 'not-found', 'global-error', 'route', 'template', 'default'];
-    if (nextJsFiles.includes(fileName)) {
+    // Skip config files and other non-testable files
+    const skipPatterns = [
+      /^\./,  // Hidden files
+      /config\.(ts|js)$/i,  // Config files
+      /\.d\.ts$/,  // Type definition files
+      /\.stories\.(tsx|jsx|ts|js)$/i,  // Storybook files
+      /\.mock\.(tsx|jsx|ts|js)$/i,  // Mock files (they're test data, not testable code)
+      /setupTests\.(ts|js)$/i,  // Test setup files
+      /vitest\.config\.(ts|js)$/i,  // Vitest config
+      /jest\.config\.(ts|js)$/i,  // Jest config
+    ];
+    
+    for (const pattern of skipPatterns) {
+      if (pattern.test(filePath)) {
+        return false;
+      }
+    }
+
+    // React components (.tsx, .jsx) - must start with capital letter or be Next.js special files
+    if (/\.(tsx|jsx)$/.test(filePath)) {
+      // Next.js App Router special files (always testable)
+      const nextJsFiles = ['page', 'layout', 'loading', 'error', 'not-found', 'global-error', 'route', 'template', 'default'];
+      if (nextJsFiles.includes(fileName)) {
+        return true;
+      }
+
+      // Regular React components (must start with capital letter)
+      if (/^[A-Z]/.test(fileName)) {
+        return true;
+      }
+    }
+
+    // Custom hooks (.ts, .js) - files starting with "use" (React hooks convention)
+    if (/\.(ts|js)$/.test(filePath) && /^use[A-Z]/.test(fileName)) {
       return true;
     }
 
-    // Regular React components (must start with capital letter)
-    if (/^[A-Z]/.test(fileName)) {
-      return true;
+    // Utility functions (.ts, .js) - files in lib/, utils/, helpers/, hooks/ directories
+    // that export functions (not just types)
+    if (/\.(ts|js)$/.test(filePath)) {
+      const dir = path.dirname(filePath);
+      const dirName = path.basename(dir);
+      
+      // Check if file is in a utility/hook directory
+      const utilityDirs = ['lib', 'utils', 'helpers', 'hooks', 'utilities', 'helpers'];
+      if (utilityDirs.includes(dirName) || dir.includes('/lib/') || dir.includes('/utils/') || dir.includes('/helpers/') || dir.includes('/hooks/')) {
+        // Check if file exports functions (not just types)
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          // Look for function exports (not just type/interface exports)
+          const hasFunctionExports = /export\s+(?:const|function|async\s+function)\s+\w+|export\s*\{[^}]*\w+[^}]*\}/.test(content);
+          // Exclude files that only export types/interfaces
+          const onlyTypes = /^[\s\n]*\/\/.*\n|^[\s\n]*import.*\n|^[\s\n]*(export\s+)?(type|interface|enum)\s+\w+[\s\S]*$/.test(content.trim());
+          
+          if (hasFunctionExports && !onlyTypes) {
+            return true;
+          }
+        } catch (error) {
+          // If we can't read the file, skip it
+          return false;
+        }
+      }
     }
 
     return false;

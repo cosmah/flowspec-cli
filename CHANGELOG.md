@@ -5,6 +5,28 @@ All notable changes to FlowSpec CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.9] - 2026-01-06
+
+### 🔧 Improved
+- **Resource Cleanup**: Enhanced connection pool management and cleanup on shutdown
+- **Process Management**: Improved child process tracking and cleanup for test executions
+- **HTTP Client**: Added timeout configuration to all HTTP requests for better reliability
+- **Graceful Shutdown**: Enhanced signal handling (SIGINT, SIGTERM, SIGUSR1, SIGUSR2) for proper cleanup
+- **Connection Management**: Better database connection pool cleanup in brain server
+
+### 🐛 Fixed
+- **Resource Leaks**: Fixed potential database connection leaks on server shutdown
+- **Orphaned Processes**: Fixed issue where child processes could remain after CLI exit
+- **Missing Timeouts**: Added missing HTTP request timeouts to prevent hanging connections
+- **Watcher Cleanup**: Fixed file watcher cleanup on all exit paths
+- **Background Tasks**: Improved cleanup of background test execution processes
+
+### 📚 Technical Details
+- Database connection pools now explicitly closed on brain server shutdown
+- Test executor tracks and kills all child processes on cleanup
+- All axios requests now have explicit timeout configurations
+- Enhanced error handling for connection pool management
+
 ## [2.0.8] - 2026-01-05
 
 ### 🚀 Added

@@ -99,11 +99,17 @@ export class AuthManager {
     const spinner = ora('Creating account...').start();
 
     try {
-      const response = await axios.post(`${this.apiUrl}/auth/signup`, {
-        name: answers.name,
-        email: answers.email,
-        password: answers.password
-      });
+      const response = await axios.post(
+        `${this.apiUrl}/auth/signup`,
+        {
+          name: answers.name,
+          email: answers.email,
+          password: answers.password
+        },
+        {
+          timeout: 30000 // 30 second timeout
+        }
+      );
 
       const credentials: Credentials = {
         userId: response.data.user_id,
@@ -161,10 +167,16 @@ export class AuthManager {
     const spinner = ora('Logging in...').start();
 
     try {
-      const response = await axios.post(`${this.apiUrl}/auth/login`, {
-        email: answers.email,
-        password: answers.password
-      });
+      const response = await axios.post(
+        `${this.apiUrl}/auth/login`,
+        {
+          email: answers.email,
+          password: answers.password
+        },
+        {
+          timeout: 30000 // 30 second timeout
+        }
+      );
 
       const credentials: Credentials = {
         userId: response.data.user_id,

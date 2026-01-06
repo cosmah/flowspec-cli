@@ -56,7 +56,7 @@ export declare class TestGenerator {
      */
     private generateTestForComponent;
     /**
-     * Check if file is testable (React component)
+     * Check if file is testable (React component, hook, or utility)
      */
     private isTestableFile;
     /**

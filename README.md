@@ -155,10 +155,7 @@ components/
 }
 ```
 
-### Environment Variables
-```bash
-FLOWSPEC_API_URL=https://api.cosmah.me  # API server URL
-```
+
 
 ## 🎯 File Watching Behavior
 
@@ -220,15 +217,7 @@ Updated test for src/components/Button.tsx
 - **After**: Clean, minimal test code focused on functionality
 - **Savings**: ~20% reduction in response tokens
 
-## 📊 Dashboard Integration
 
-Access your FlowSpec dashboard at [https://dashboard.cosmah.me](https://dashboard.cosmah.me) to:
-
-- 📈 View test coverage analytics
-- 👥 Collaborate with team members
-- 🔍 Monitor test performance
-- 📋 Track project progress
-- ⚙️ Manage account settings
 
 ## 🚨 Troubleshooting
 
@@ -271,14 +260,20 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🔗 Links
 
-- 🌐 **Website**: [https://cosmah.me](https://cosmah.me)
-- 📊 **Dashboard**: [https://dashboard.cosmah.me](https://dashboard.cosmah.me)  
+- 🌐 **Website**: [https://cosmah.me](https://cosmah.me) 
 - 📚 **Documentation**: [https://docs.cosmah.me](https://docs.cosmah.me)
 - 🐛 **Issues**: [GitHub Issues](https://github.com/cosmah/flowspec-cli/issues)
 - 💬 **Support**: [support@cosmah.me](mailto:support@cosmah.me)
 
-## 🎉 What's New in v2.0.8
+## 🎉 What's New in v2.0.9
 
+### 🔧 Reliability & Performance
+- 🛡️ **Resource Cleanup**: Enhanced connection pool management and cleanup prevents resource leaks
+- 🔄 **Process Management**: Improved child process tracking ensures no orphaned processes on exit
+- ⏱️ **HTTP Timeouts**: All HTTP requests now have explicit timeouts for better reliability
+- 🚪 **Graceful Shutdown**: Enhanced signal handling ensures proper cleanup on all exit paths
+
+### Previous Features (v2.0.8)
 - ⚡ **Smart Caching (Ghost Runner)**: Instant test generation for unchanged components - bypass API calls when code hasn't changed
 - 🔧 **Auto-Healing**: Automatically detects and fixes test syntax errors, import issues, and component mismatches
 - 📈 **Test Debt Counter**: Real-time visibility into untested components with time-to-coverage estimates

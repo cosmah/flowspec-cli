@@ -110,6 +110,8 @@ class AuthManager {
                 name: answers.name,
                 email: answers.email,
                 password: answers.password
+            }, {
+                timeout: 30000 // 30 second timeout
             });
             const credentials = {
                 userId: response.data.user_id,
@@ -163,6 +165,8 @@ class AuthManager {
             const response = await axios_1.default.post(`${this.apiUrl}/auth/login`, {
                 email: answers.email,
                 password: answers.password
+            }, {
+                timeout: 30000 // 30 second timeout
             });
             const credentials = {
                 userId: response.data.user_id,
