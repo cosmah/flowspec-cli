@@ -265,13 +265,24 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - 🐛 **Issues**: [GitHub Issues](https://github.com/cosmah/flowspec-cli/issues)
 - 💬 **Support**: [support@cosmah.me](mailto:support@cosmah.me)
 
-## 🎉 What's New in v2.0.9
+## 🎉 What's New in v2.1.0
+
+### 🚀 Automatic Dependency Management
+- 📦 **Auto-Installation**: FlowSpec automatically detects and installs missing dependencies during test generation
+- 🔍 **Smart Verification**: Checks both `package.json` and actual `node_modules` to ensure dependencies exist
+- 🔄 **Automatic Retry**: Tests automatically retry after dependency installation completes
+- 🎯 **Error Classification**: Distinguishes between dependency errors (auto-installs) and test code errors (auto-heals)
 
 ### 🔧 Reliability & Performance
 - 🛡️ **Resource Cleanup**: Enhanced connection pool management and cleanup prevents resource leaks
 - 🔄 **Process Management**: Improved child process tracking ensures no orphaned processes on exit
 - ⏱️ **HTTP Timeouts**: All HTTP requests now have explicit timeouts for better reliability
 - 🚪 **Graceful Shutdown**: Enhanced signal handling ensures proper cleanup on all exit paths
+
+### 🐛 Critical Fixes
+- ✅ **Healer Node**: Fixed critical bug preventing auto-healing (`re` module import)
+- ✅ **Code Extraction**: Improved healer response parsing and validation
+- ✅ **Dependency Errors**: Fixed false auto-healing triggers on dependency issues
 
 ### Previous Features (v2.0.8)
 - ⚡ **Smart Caching (Ghost Runner)**: Instant test generation for unchanged components - bypass API calls when code hasn't changed

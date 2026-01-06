@@ -5,6 +5,34 @@ All notable changes to FlowSpec CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-01-06
+
+### 🚀 Added
+- **Automatic Dependency Installation**: FlowSpec now automatically detects and installs missing dependencies during test generation
+- **Enhanced Dependency Verification**: Checks both `package.json` and actual `node_modules` installation to ensure dependencies exist
+- **Smart Dependency Error Handling**: Distinguishes between missing project dependencies (auto-installs) and test code errors (auto-heals)
+
+### 🔧 Improved
+- **Healer Node**: Fixed missing `re` module import causing auto-healing failures
+- **Dependency Detection**: Enhanced logic to detect missing npm packages (@vitejs/plugin-react, vitest, etc.)
+- **Error Classification**: Improved failure analyzer to correctly identify dependency errors vs test code issues
+- **Healer Prompts**: Enhanced prompts to never suggest manual dependency installation to users
+- **Code Extraction**: Better validation and extraction of test code from healer responses
+- **Automatic Retry**: Tests automatically retry after dependency installation
+
+### 🐛 Fixed
+- **Critical Bug**: Fixed `NameError: name 're' is not defined` in healer node that prevented auto-healing
+- **Import Issues**: Fixed healer not properly extracting code from markdown blocks
+- **Dependency Errors**: Fixed issue where dependency errors triggered incorrect auto-healing instead of auto-installation
+- **False Positives**: Improved error classification to prevent false auto-healing triggers on dependency issues
+
+### 📚 Technical Details
+- Added `isPackageInstalled()` method to verify actual package installation in `node_modules`
+- Enhanced `ensureVitest()` to check both package.json and node_modules
+- Implemented `isMissingDependencyError()` and `ensureDependencies()` in test generator
+- Improved healer code extraction with better validation and fallback to original code
+- Enhanced error messages to guide users without suggesting manual steps
+
 ## [2.0.9] - 2026-01-06
 
 ### 🔧 Improved
