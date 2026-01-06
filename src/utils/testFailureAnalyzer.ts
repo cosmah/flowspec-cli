@@ -135,9 +135,18 @@ export class TestFailureAnalyzer {
       return false;
     }
 
-    // Check if it's importing test utilities (our fault)
+    // EXCLUDE project dependency/configuration errors (not our fault)
+    // These are missing npm packages that user needs to install
+    const isDependencyError = /Cannot find module ['"]@(vitejs|testing-library|types|jest-dom)/.test(output) ||
+                              /Cannot find module ['"]vitest/.test(output) ||
+                              /Cannot find module ['"]@vitejs/.test(output);
+    if (isDependencyError) {
+      return false; // Not our fault - user needs to install dependencies
+    }
+
+    // Check if it's importing test utilities (our fault - wrong import path in test code)
     const isTestUtilityImport = /from ['"](vitest|@testing-library|@testing-library\/react|@testing-library\/jest-dom)['"]/.test(output);
-    if (isTestUtilityImport) {
+    if (isTestUtilityImport && this.isWrongImportPath(output)) {
       return true;
     }
 

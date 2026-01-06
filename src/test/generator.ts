@@ -259,7 +259,7 @@ export class TestGenerator {
               this.silentNotify(`✨ ${relativePath} updated. Tests: ${testCount} generated (${elapsed}s)`);
               
               // Update notification when test completes
-              testExecutionPromise.then(testResult => {
+              testExecutionPromise.then(async (testResult) => {
                 const finalElapsed = (testResult.duration / 1000).toFixed(1);
                 const finalTestCount = testResult.testCount || testCount;
                 
@@ -276,9 +276,25 @@ export class TestGenerator {
                     this.silentNotify(`🔧 ${relativePath} - Auto-healing test syntax...`);
                     this.triggerAutoHeal(config.projectId, componentCode, relativePath, result.test_code, testResult.error || '');
                   } else {
-                    // Their fault - show to user
-                    this.silentNotify(`⚠️  ${relativePath} - ${finalTestCount} tests failing (component issue)`);
-                    this.showComponentFailure(relativePath, analysis, finalTestCount);
+                    // Check if it's a missing dependency error - auto-install
+                    if (this.isMissingDependencyError(testResult.error || '')) {
+                      this.silentNotify(`📦 ${relativePath} - Installing missing dependencies...`);
+                      await this.ensureDependencies(projectRoot);
+                      // Retry test execution after installing dependencies
+                      const retryResult = await testExecutor.executeTest(testFilePath);
+                      if (retryResult.passed) {
+                        this.silentNotify(`✅ ${relativePath} - Dependencies installed, tests passing`);
+                        cache.setCache(filePath, componentCode, result.test_code, true, result.attempts);
+                      } else {
+                        // Still failing - show to user
+                        this.silentNotify(`⚠️  ${relativePath} - ${finalTestCount} tests failing (component issue)`);
+                        this.showComponentFailure(relativePath, analysis, finalTestCount);
+                      }
+                    } else {
+                      // Their fault - show to user
+                      this.silentNotify(`⚠️  ${relativePath} - ${finalTestCount} tests failing (component issue)`);
+                      this.showComponentFailure(relativePath, analysis, finalTestCount);
+                    }
                   }
                 }
               }).catch(() => {
@@ -291,7 +307,7 @@ export class TestGenerator {
             console.log(chalk.gray(`   Attempts: ${result.attempts}`));
             
               // Update status when test completes
-              testExecutionPromise.then(testResult => {
+              testExecutionPromise.then(async (testResult) => {
                 const testCount = testResult.testCount || this.countTests(result.test_code);
                 
                 if (testResult.passed) {
@@ -307,9 +323,25 @@ export class TestGenerator {
                     console.log(chalk.yellow(`   🔧 Auto-healing test syntax/import issues...`));
                     this.triggerAutoHeal(config.projectId, componentCode, relativePath, result.test_code, testResult.error || '');
                   } else {
-                    // Their fault - show details
-                    console.log(chalk.red(`   ❌ Test execution complete: ${testCount} tests failing (component issue)`));
-                    this.showComponentFailure(relativePath, analysis, testCount);
+                    // Check if it's a missing dependency error - auto-install
+                    if (this.isMissingDependencyError(testResult.error || '')) {
+                      console.log(chalk.blue(`   📦 Missing dependencies detected, installing...`));
+                      await this.ensureDependencies(projectRoot);
+                      // Retry test execution after installing dependencies
+                      const retryResult = await testExecutor.executeTest(testFilePath);
+                      if (retryResult.passed) {
+                        console.log(chalk.green(`   ✅ Dependencies installed, tests now passing`));
+                        cache.setCache(filePath, componentCode, result.test_code, true, result.attempts);
+                      } else {
+                        // Still failing - show details
+                        console.log(chalk.red(`   ❌ Test execution complete: ${testCount} tests failing (component issue)`));
+                        this.showComponentFailure(relativePath, analysis, testCount);
+                      }
+                    } else {
+                      // Their fault - show details
+                      console.log(chalk.red(`   ❌ Test execution complete: ${testCount} tests failing (component issue)`));
+                      this.showComponentFailure(relativePath, analysis, testCount);
+                    }
                   }
                 }
               }).catch(() => {
@@ -416,6 +448,13 @@ export class TestGenerator {
       console.log();
     } catch (error) {
       // Silently fail - test debt is optional
+    }
+
+    // Ensure dependencies are installed before starting
+    try {
+      await this.ensureDependencies(projectRoot);
+    } catch (error) {
+      console.log(chalk.yellow('⚠️  Could not verify dependencies, continuing anyway...'));
     }
 
     // Auto-embed codebase if not done yet
@@ -916,6 +955,98 @@ export class TestGenerator {
       if (!this.silentMode) {
         ErrorHandler.handleBrainServerError(error);
         console.log(chalk.yellow(`   ⚠️  Auto-healing failed - test may need manual fixes`));
+      }
+    }
+  }
+
+  /**
+   * Check if error is a missing dependency error
+   */
+  private isMissingDependencyError(error: string): boolean {
+    if (!error) return false;
+    
+    const dependencyPatterns = [
+      /Cannot find module ['"]@vitejs/,
+      /Cannot find module ['"]vitest/,
+      /Cannot find module ['"]@testing-library/,
+      /Cannot find module ['"]vite/,
+      /Module not found.*@vitejs/,
+      /Module not found.*vitest/,
+      /Module not found.*@testing-library/,
+      /Failed to resolve.*@vitejs/,
+      /Failed to resolve.*vitest/
+    ];
+    
+    return dependencyPatterns.some(pattern => pattern.test(error));
+  }
+
+  /**
+   * Ensure all required dependencies are installed
+   */
+  private async ensureDependencies(projectRoot: string): Promise<void> {
+    try {
+      const packageJsonPath = path.join(projectRoot, 'package.json');
+      if (!fs.existsSync(packageJsonPath)) {
+        return; // No package.json, can't install dependencies
+      }
+
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+      const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
+      
+      // Required dependencies
+      const requiredDeps = [
+        'vitest',
+        '@vitejs/plugin-react',
+        'vite',
+        '@testing-library/react',
+        '@testing-library/jest-dom',
+        'jsdom'
+      ];
+      
+      // Check which ones are missing
+      const missingDeps = requiredDeps.filter(dep => {
+        const inPackageJson = dependencies[dep];
+        const nodeModulesPath = path.join(projectRoot, 'node_modules', dep);
+        return !inPackageJson || !fs.existsSync(nodeModulesPath);
+      });
+      
+      if (missingDeps.length === 0) {
+        return; // All dependencies are installed
+      }
+      
+      // Install missing dependencies
+      const { execSync } = require('child_process');
+      const hasYarnLock = fs.existsSync(path.join(projectRoot, 'yarn.lock'));
+      const hasPnpmLock = fs.existsSync(path.join(projectRoot, 'pnpm-lock.yaml'));
+      
+      let installCmd: string;
+      const deps = missingDeps.join(' ');
+      
+      if (hasPnpmLock) {
+        installCmd = `pnpm add -D ${deps}`;
+      } else if (hasYarnLock) {
+        installCmd = `yarn add -D ${deps}`;
+      } else {
+        installCmd = `npm install -D ${deps}`;
+      }
+      
+      if (!this.silentMode) {
+        console.log(chalk.blue(`   📦 Installing missing dependencies: ${missingDeps.join(', ')}`));
+      }
+      
+      execSync(installCmd, {
+        cwd: projectRoot,
+        stdio: this.silentMode ? 'pipe' : 'inherit'
+      });
+      
+      if (!this.silentMode) {
+        console.log(chalk.green(`   ✅ Dependencies installed successfully`));
+      }
+    } catch (error) {
+      // Silently fail - dependencies might already be installing or there might be permission issues
+      // This prevents blocking the workflow
+      if (!this.silentMode) {
+        console.log(chalk.yellow(`   ⚠️  Could not auto-install dependencies, please run: npm install`));
       }
     }
   }

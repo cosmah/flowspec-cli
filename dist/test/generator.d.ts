@@ -76,6 +76,14 @@ export declare class TestGenerator {
      */
     private triggerAutoHeal;
     /**
+     * Check if error is a missing dependency error
+     */
+    private isMissingDependencyError;
+    /**
+     * Ensure all required dependencies are installed
+     */
+    private ensureDependencies;
+    /**
      * Show component failure details to user (their fault)
      */
     private showComponentFailure;

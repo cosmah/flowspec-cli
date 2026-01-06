@@ -358,11 +358,41 @@ export class ProjectManager {
   }
 
   /**
-   * Ensure Vitest is installed
+   * Check if a package is actually installed in node_modules
+   */
+  private isPackageInstalled(projectRoot: string, packageName: string): boolean {
+    const nodeModulesPath = path.join(projectRoot, 'node_modules', packageName);
+    return fs.existsSync(nodeModulesPath);
+  }
+
+  /**
+   * Ensure Vitest is installed (checks both package.json and node_modules)
    */
   private async ensureVitest(projectRoot: string, packageJson: any): Promise<void> {
     const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
-    const needsInstall = !dependencies.vitest || !dependencies['@vitejs/plugin-react'] || !dependencies.vite;
+    
+    // Required dependencies for FlowSpec
+    const requiredDeps = {
+      'vitest': 'vitest',
+      '@vitejs/plugin-react': '@vitejs/plugin-react',
+      'vite': 'vite',
+      '@testing-library/react': '@testing-library/react',
+      '@testing-library/jest-dom': '@testing-library/jest-dom',
+      'jsdom': 'jsdom'
+    };
+    
+    // Check both package.json and actual installation
+    const missingDeps: string[] = [];
+    for (const [key, packageName] of Object.entries(requiredDeps)) {
+      const inPackageJson = dependencies[key] || dependencies[packageName];
+      const installed = this.isPackageInstalled(projectRoot, packageName);
+      
+      if (!inPackageJson || !installed) {
+        missingDeps.push(packageName);
+      }
+    }
+    
+    const needsInstall = missingDeps.length > 0;
     
     if (needsInstall) {
       console.log(chalk.yellow('\n⚠️  Vitest dependencies not found. Installing required dependencies...'));
@@ -377,8 +407,8 @@ export class ProjectManager {
         const hasPnpmLock = fs.existsSync(path.join(projectRoot, 'pnpm-lock.yaml'));
         
         let installCmd: string;
-        // Install all required dependencies: vitest, testing libraries, jsdom, and vite plugins
-        const deps = 'vitest @testing-library/react @testing-library/jest-dom jsdom @vitejs/plugin-react vite';
+        // Install all required dependencies (only missing ones to speed up installation)
+        const deps = missingDeps.join(' ');
         if (hasPnpmLock) {
           installCmd = `pnpm add -D ${deps}`;
         } else if (hasYarnLock) {
@@ -430,14 +460,25 @@ export default defineConfig({
           console.log(chalk.green('✅ Created vitest.config.ts and test setup'));
         }
         
-      } catch (error) {
+      } catch (error: any) {
         spinner.fail('Failed to install dependencies');
-        console.log(chalk.yellow('\n⚠️  Please install manually:'));
-        console.log(chalk.gray('   npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom @vitejs/plugin-react vite'));
-        console.log(chalk.gray('   # or'));
-        console.log(chalk.gray('   yarn add -D vitest @testing-library/react @testing-library/jest-dom jsdom @vitejs/plugin-react vite'));
-        console.log(chalk.gray('   # or'));
-        console.log(chalk.gray('   pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @vitejs/plugin-react vite'));
+        // Try to show the actual error if available
+        const errorMsg = error?.message || error?.stderr || String(error);
+        console.log(chalk.red(`\n❌ Installation error: ${errorMsg}`));
+        console.log(chalk.yellow('\n💡 FlowSpec will automatically retry dependency installation when needed.'));
+        console.log(chalk.yellow('   If this persists, please run:'));
+        
+        // Re-detect package manager for error message
+        const hasYarnLock = fs.existsSync(path.join(projectRoot, 'yarn.lock'));
+        const hasPnpmLock = fs.existsSync(path.join(projectRoot, 'pnpm-lock.yaml'));
+        const installCmd = hasPnpmLock 
+          ? `pnpm install` 
+          : hasYarnLock 
+          ? `yarn install` 
+          : `npm install`;
+        console.log(chalk.cyan(`   ${installCmd}`));
+        // Don't throw - allow init to complete even if dependencies fail to install
+        // They can be installed later or we'll retry during test generation
       }
     } else {
       console.log(chalk.green('✅ Vitest dependencies found'));

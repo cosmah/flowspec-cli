@@ -47,7 +47,11 @@ export declare class ProjectManager {
      */
     private updateGitignore;
     /**
-     * Ensure Vitest is installed
+     * Check if a package is actually installed in node_modules
+     */
+    private isPackageInstalled;
+    /**
+     * Ensure Vitest is installed (checks both package.json and node_modules)
      */
     private ensureVitest;
     /**
