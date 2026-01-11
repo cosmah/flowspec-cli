@@ -151,7 +151,7 @@ components/
   "userId": "user_xyz789",
   "name": "My React App", 
   "framework": "react",
-  "apiUrl": "https://api.cosmah.me"
+  "apiUrl": "https://api.flowspecai.dev"
 }
 ```
 
@@ -260,10 +260,10 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🔗 Links
 
-- 🌐 **Website**: [https://cosmah.me](https://cosmah.me) 
-- 📚 **Documentation**: [https://docs.cosmah.me](https://docs.cosmah.me)
+- 🌐 **Website**: [https://flowspecai.dev](https://flowspecai.dev) 
+- 📚 **Documentation**: [https://flowspecai.dev/docs](https://flowspecai.dev/docs)
 - 🐛 **Issues**: [GitHub Issues](https://github.com/cosmah/flowspec-cli/issues)
-- 💬 **Support**: [support@cosmah.me](mailto:support@cosmah.me)
+- 💬 **Support**: [support@flowspecai.dev](mailto:support@flowspecai.dev)
 
 ## 🎉 What's New in v2.1.0
 

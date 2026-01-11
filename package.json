@@ -1,6 +1,6 @@
 {
   "name": "@cosmah/flowspec-cli",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "FlowSpec CLI - AI-powered autonomous React test generation with self-healing capabilities and intelligent file watching",
   "main": "dist/index.js",
   "bin": {
@@ -32,7 +32,7 @@
   ],
   "author": "FlowSpec Team",
   "license": "MIT",
-  "homepage": "https://cosmah.me",
+  "homepage": "https://flowspecai.dev",
   "repository": {
     "type": "git",
     "url": "https://github.com/cosmah/flowspec-cli.git"
