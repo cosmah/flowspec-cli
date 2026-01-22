@@ -57,7 +57,7 @@ export class AuthManager {
       }
     }
     
-    this.apiUrl = apiUrl || 'https://api.cosmah.me';
+    this.apiUrl = apiUrl || 'https://api.flowmails.work';
     
     // Ensure .flowspec directory exists
     const flowspecDir = path.dirname(this.credentialsPath);

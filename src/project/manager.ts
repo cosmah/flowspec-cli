@@ -56,7 +56,7 @@ export class ProjectManager {
       }
     }
     
-    this.apiUrl = apiUrl || 'https://api.cosmah.me';
+    this.apiUrl = apiUrl || 'https://api.flowmails.work';
   }
 
   /**
