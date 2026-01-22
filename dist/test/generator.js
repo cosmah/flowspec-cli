@@ -82,7 +82,7 @@ class TestGenerator {
                 }
             }
         }
-        this.apiUrl = apiUrl || 'https://api.cosmah.me';
+        this.apiUrl = apiUrl || 'https://api.flowmails.work';
     }
     /**
      * Initialize cache manager for a project

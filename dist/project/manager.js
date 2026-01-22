@@ -74,7 +74,7 @@ class ProjectManager {
                 }
             }
         }
-        this.apiUrl = apiUrl || 'https://api.cosmah.me';
+        this.apiUrl = apiUrl || 'https://api.flowmails.work';
     }
     /**
      * Initialize FlowSpec in a project
