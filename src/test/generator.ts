@@ -9,6 +9,7 @@ import axios from 'axios';
 import chalk from 'chalk';
 import ora from 'ora';
 import chokidar from 'chokidar';
+import { glob } from 'glob';
 import { AuthManager } from '../auth/manager';
 import { ProjectManager } from '../project/manager';
 import { CacheManager } from '../utils/cache';
@@ -542,6 +543,7 @@ export class TestGenerator {
         console.log(chalk.gray(`   Testable components: ${testableFiles}`));
         console.log();
         
+        // Process existing files found during explicit scan
         if (existingFiles.length > 0) {
           console.log(chalk.blue(`🧪 Generating tests for ${existingFiles.length} existing components...\n`));
           
@@ -705,7 +707,7 @@ export class TestGenerator {
         requestBody,
         {
           headers: this.authManager.getAuthHeader(),
-          timeout: 120000 // 2 minutes timeout for AI generation
+          timeout: 360000 // 6 minutes timeout for AI generation (includes healing time and large models)
         }
       );
 
@@ -905,7 +907,7 @@ export class TestGenerator {
           },
           {
             headers: this.authManager.getAuthHeader(),
-            timeout: 120000
+            timeout: 360000 // 6 minutes timeout for healing operations
           }
         ),
         {

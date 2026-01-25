@@ -196,12 +196,68 @@ export class AuthManager {
     } catch (error: any) {
       spinner.fail('Login failed');
       
-      if (error.response?.status === 401) {
+      // Handle network errors
+      if (!error.response) {
+        if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+          throw new Error(`Cannot connect to server at ${this.apiUrl}. Please check if the server is running.`);
+        }
+        if (error.code === 'ETIMEDOUT') {
+          throw new Error('Connection timeout. Please check your internet connection and try again.');
+        }
+        throw new Error(`Network error: ${error.message || 'Unable to connect to server'}`);
+      }
+      
+      const responseData = error.response.data;
+      const status = error.response.status;
+      const errorObj = responseData?.error;
+      
+      // Handle unverified email (403 status)
+      if (status === 403) {
+        let detail: any = null;
+        
+        // Try to extract detail from error object
+        // New format: error object has fields directly (email_verified, message, email)
+        if (errorObj && typeof errorObj === 'object') {
+          if (errorObj.email_verified === false || errorObj.email_verified === 'False') {
+            detail = errorObj;
+          } else if (errorObj.message) {
+            // Old format: message contains stringified Python dict
+            try {
+              const messageStr = errorObj.message;
+              if (typeof messageStr === 'string' && (messageStr.startsWith('{') || messageStr.includes("'message'"))) {
+                // Parse Python dict string representation
+                const jsonStr = messageStr
+                  .replace(/'/g, '"')
+                  .replace(/False/g, 'false')
+                  .replace(/True/g, 'true')
+                  .replace(/None/g, 'null');
+                detail = JSON.parse(jsonStr);
+              }
+            } catch (e) {
+              // Parsing failed, continue
+            }
+          }
+        }
+        
+        // Check if we have the unverified email structure
+        if (detail && typeof detail === 'object' && 
+            (detail.email_verified === false || detail.email_verified === 'False' || detail.email_verified === 'false')) {
+          console.log(chalk.yellow('\n📧 Email Verification Required'));
+          console.log(chalk.white(detail.message || 'Your email address has not been verified.'));
+          console.log(chalk.gray(`\n   A verification email has been sent to: ${detail.email || answers.email}`));
+          console.log(chalk.gray('   Please check your email and click the verification link.'));
+          console.log(chalk.gray('   After verifying, you can login again.\n'));
+          throw new Error('Email verification required');
+        }
+        
+        // Fallback for other 403 errors
+        throw new Error(errorObj?.message || 'Access forbidden');
+      } else if (status === 401) {
         throw new Error('Invalid email or password');
-      } else if (error.response?.data?.detail) {
-        throw new Error(error.response.data.detail);
       } else {
-        throw new Error('Login failed. Please try again.');
+        // Handle other errors
+        const message = errorObj?.message || responseData?.detail || error.message || 'Login failed. Please try again.';
+        throw new Error(message);
       }
     }
   }

@@ -510,6 +510,7 @@ class TestGenerator {
             console.log(chalk_1.default.gray(`   Files scanned: ${scannedFiles}`));
             console.log(chalk_1.default.gray(`   Testable components: ${testableFiles}`));
             console.log();
+            // Process existing files found during explicit scan
             if (existingFiles.length > 0) {
                 console.log(chalk_1.default.blue(`🧪 Generating tests for ${existingFiles.length} existing components...\n`));
                 // Generate tests for existing files
@@ -642,7 +643,7 @@ class TestGenerator {
             }
             const response = await axios_1.default.post(`${this.apiUrl}/generate-test`, requestBody, {
                 headers: this.authManager.getAuthHeader(),
-                timeout: 120000 // 2 minutes timeout for AI generation
+                timeout: 360000 // 6 minutes timeout for AI generation (includes healing time and large models)
             });
             if (!this.silentMode) {
                 console.log(chalk_1.default.gray(`   ✅ API Response received`));
@@ -810,7 +811,7 @@ class TestGenerator {
                 auto_heal: true
             }, {
                 headers: this.authManager.getAuthHeader(),
-                timeout: 120000
+                timeout: 360000 // 6 minutes timeout for healing operations
             }), {
                 maxRetries: 2, // Fewer retries for auto-heal
                 retryDelay: 1000
