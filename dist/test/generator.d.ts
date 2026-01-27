@@ -40,6 +40,22 @@ export declare class TestGenerator {
      */
     private countTests;
     /**
+     * AI-powered project structure detection
+     */
+    private detectProjectStructure;
+    /**
+     * Get all potential component files for AI analysis
+     */
+    private getAllPotentialFiles;
+    /**
+     * Enhanced watch patterns based on actual project analysis
+     */
+    private getEnhancedWatchPatterns;
+    /**
+     * Basic fallback watch patterns
+     */
+    private getBasicWatchPatterns;
+    /**
      * Start watching for file changes
      */
     startWatching(projectRoot: string): Promise<void>;

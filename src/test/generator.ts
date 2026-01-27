@@ -410,6 +410,143 @@ export class TestGenerator {
   }
 
   /**
+   * AI-powered project structure detection
+   */
+  private async detectProjectStructure(projectRoot: string): Promise<string[]> {
+    try {
+      // Get all potential component files first
+      const allFiles = await this.getAllPotentialFiles(projectRoot);
+      
+      if (allFiles.length === 0) {
+        // Fallback to basic patterns
+        return this.getBasicWatchPatterns();
+      }
+
+      // Use AI to analyze project structure and determine optimal patterns
+      const structurePrompt = `Analyze this project structure and determine the optimal file watch patterns for a React/Next.js test generator.
+
+Project files found:
+${allFiles.slice(0, 50).join('\n')}
+
+Based on this structure, provide ONLY a JSON array of glob patterns that would capture all testable React components, hooks, and utilities. Consider:
+- React components (.tsx, .jsx files starting with capital letters)
+- Custom hooks (files starting with 'use')
+- Utility functions in lib/, utils/, helpers/ directories
+- Next.js app router files (page.tsx, layout.tsx, etc.)
+- Next.js pages router files
+
+Return ONLY the JSON array, no explanations:`;
+
+      const response = await axios.post(
+        `${this.apiUrl}/ollama-chat`,
+        { prompt: structurePrompt },
+        {
+          headers: this.authManager.getAuthHeader(),
+          timeout: 30000
+        }
+      );
+
+      if (response.data.success && response.data.response) {
+        try {
+          const patterns = JSON.parse(response.data.response.trim());
+          if (Array.isArray(patterns) && patterns.length > 0) {
+            console.log(chalk.blue('🤖 AI detected project structure patterns:'));
+            patterns.forEach(pattern => console.log(chalk.gray(`   ${pattern}`)));
+            return patterns;
+          }
+        } catch (parseError) {
+          console.log(chalk.yellow('⚠️  AI response not valid JSON, using fallback patterns'));
+        }
+      }
+    } catch (error) {
+      console.log(chalk.yellow('⚠️  AI structure detection failed, using fallback patterns'));
+    }
+
+    // Fallback to enhanced basic patterns
+    return this.getEnhancedWatchPatterns(projectRoot);
+  }
+
+  /**
+   * Get all potential component files for AI analysis
+   */
+  private async getAllPotentialFiles(projectRoot: string): Promise<string[]> {
+    try {
+      const { glob } = await import('glob');
+      
+      // Cast search for all JS/TS files, excluding obvious non-component files
+      const files = await glob('**/*.{ts,tsx,js,jsx}', {
+        cwd: projectRoot,
+        ignore: [
+          'node_modules/**',
+          'dist/**',
+          'build/**',
+          '.next/**',
+          'coverage/**',
+          '**/*.test.{ts,tsx,js,jsx}',
+          '**/*.spec.{ts,tsx,js,jsx}',
+          '.flowspec/**',
+          '**/*.d.ts',
+          '**/vite.config.*',
+          '**/vitest.config.*',
+          '**/jest.config.*',
+          '**/tailwind.config.*',
+          '**/postcss.config.*'
+        ]
+      });
+
+      return files;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * Enhanced watch patterns based on actual project analysis
+   */
+  private getEnhancedWatchPatterns(projectRoot: string): string[] {
+    const patterns: string[] = [];
+    
+    // Check what directories actually exist
+    const commonDirs = [
+      'src', 'app', 'pages', 'components', 'lib', 'utils', 'helpers', 
+      'hooks', 'features', 'modules', 'views', 'screens', 'containers'
+    ];
+    
+    commonDirs.forEach(dir => {
+      const dirPath = path.join(projectRoot, dir);
+      if (fs.existsSync(dirPath)) {
+        patterns.push(`${dir}/**/*.{ts,tsx,js,jsx}`);
+      }
+    });
+
+    // Add root level patterns for files directly in project root
+    patterns.push('*.{ts,tsx,js,jsx}');
+    
+    // If no patterns found, use basic fallback
+    if (patterns.length === 1) { // Only root pattern
+      return this.getBasicWatchPatterns();
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Basic fallback watch patterns
+   */
+  private getBasicWatchPatterns(): string[] {
+    return [
+      'src/**/*.{ts,tsx,js,jsx}',
+      'app/**/*.{ts,tsx,js,jsx}',
+      'components/**/*.{ts,tsx,js,jsx}',
+      'lib/**/*.{ts,tsx,js,jsx}',
+      'pages/**/*.{ts,tsx,js,jsx}',
+      'hooks/**/*.{ts,tsx,js,jsx}',
+      'utils/**/*.{ts,tsx,js,jsx}',
+      'helpers/**/*.{ts,tsx,js,jsx}',
+      '*.{ts,tsx,js,jsx}'
+    ];
+  }
+  /**
    * Start watching for file changes
    */
   async startWatching(projectRoot: string): Promise<void> {
@@ -467,13 +604,9 @@ export class TestGenerator {
       console.log(chalk.gray('   You can run "flowspec embed" manually later'));
     }
 
-    const watchPatterns = [
-      'src/**/*.{ts,tsx,js,jsx}',
-      'app/**/*.{ts,tsx,js,jsx}',  // Next.js App Router
-      'components/**/*.{ts,tsx,js,jsx}',
-      'lib/**/*.{ts,tsx,js,jsx}',
-      'pages/**/*.{ts,tsx,js,jsx}' // Next.js Pages Router
-    ];
+    // AI-powered project structure detection
+    console.log(chalk.blue('🔍 Analyzing project structure...'));
+    const watchPatterns = await this.detectProjectStructure(projectRoot);
 
     console.log(chalk.blue('👀 Watching patterns:'));
     watchPatterns.forEach(pattern => {
@@ -707,7 +840,7 @@ export class TestGenerator {
         requestBody,
         {
           headers: this.authManager.getAuthHeader(),
-          timeout: 360000 // 6 minutes timeout for AI generation (includes healing time and large models)
+          timeout: 600000 // 10 minutes timeout (temporary - will reduce after Ollama optimizations)
         }
       );
 
@@ -907,7 +1040,7 @@ export class TestGenerator {
           },
           {
             headers: this.authManager.getAuthHeader(),
-            timeout: 360000 // 6 minutes timeout for healing operations
+            timeout: 600000 // 10 minutes timeout (temporary - will reduce after Ollama optimizations)
           }
         ),
         {
